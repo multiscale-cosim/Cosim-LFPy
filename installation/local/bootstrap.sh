@@ -70,10 +70,12 @@ echo "1" | sudo update-alternatives --config mpirun 1>/dev/null 2>&1 # --> choos
 # STEP 4 - TVB
 #
 # NOTE: Specific versions are required for some packages
-pip install cython elephant mpi4py numpy==1.23.4 pyzmq requests testresources \
-	pandas xarray
+#pip install cython elephant mpi4py numpy==1.23.4 pyzmq requests testresources \
+#	pandas xarray
 pip install --no-cache --target=${CO_SIM_SITE_PACKAGES} \
-        tvb-library==2.8 tvb-contrib==2.7.2 tvb-gdist==2.2 
+        # LFPy pspecific packages
+		lfpykernels 
+		
 # jupyter notebook stuff
 pip install jupyter markupsafe==2.0.1
 export PATH=/home/vagrant/.local/bin:$PATH
@@ -128,20 +130,6 @@ rm -f ${CO_SIM_SITE_PACKAGES}/typing.py
 
 # even though numpy==1.21 coud have been installed,
 # other version could be still present and used
-
-if false; then
-continue_removing=1
-while [ ${continue_removing} -eq 1 ]
-do
-        pip list | grep numpy | grep -v "1.21" 1>/dev/null 2>&1
-        if [ $? -eq 0 ]
-        then
-                pip uninstall -y numpy 1>/dev/null 2>&1
-        else
-                continue_removing=0
-        fi
-done
-fi
 
 #
 # STEP 8 - Generating the .source file based on ENV variables
