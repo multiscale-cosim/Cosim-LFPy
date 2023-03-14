@@ -1,4 +1,4 @@
-# -*- mode: ruby -*-
+## -*- mode: ruby -*-
 # vi: set ft=ruby :
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
@@ -56,7 +56,7 @@ Vagrant.configure("2") do |config|
     # Display the VirtualBox GUI when booting the machine
     # vb.gui = true
     # name of the VirtualBox GUI
-    vb.name = "cosim_ubuntu_tvb_multiscale"
+    vb.name = "cosim_ubuntu_cosim_lfpy"
   
     # Customize the amount of memory on the VM:
     vb.memory = "8192"
