@@ -24,7 +24,7 @@ Short description:
   - Nest (copied from TVB-Nest usecase): new adapter / edit current one to fit this usecase
      - Create a Nest adapter to run Potjans_2014->run_microcircuit.py. For inspiration, look (https://github.com/mfahdaz/nest-simulator/blob/ecc373fe83a82d133f562a4ed6cf180d07c39578/pynest/examples/Potjans_2014/run_microcircuit.py)
      - NOTE: its one-way simulation - no MPI connection for spike generators
-#### InterscaleHUB endpoints
+#### InterscaleHUB
   - New communicator in InterscaleHub to
      - receive the data from NEST
      - do LFPy after receiving the data from NEST see e.g. line 228 in (https://github.com/multiscale-cosim/EBRAINS_InterscaleHUB/blob/bd974bd6a3ea809dbdee6cf77c9082c81192ca80/Interscale_hub/communicator_nest_to_tvb.py#L228).
