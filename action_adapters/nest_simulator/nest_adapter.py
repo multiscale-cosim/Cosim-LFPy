@@ -11,15 +11,35 @@
 # Laboratory: Simulation Laboratory Neuroscience
 # Team: Multi-scale Simulation and Design
 # ----------------------------------------------------------------------------
+import numpy as np
+import time
+import os
+import sys
+import pickle
+import base64
+import ast
 
+from science.models.Potjans import network
+from science.parameters.Potjans.stimulus_params import stim_dict
+from science.parameters.Potjans.network_params import net_dict
+from science.parameters.Potjans.sim_params import sim_dict
+# import nest
 
-##############################################################################
+from common.utils.security_utils import check_integrity
+
+from EBRAINS_RichEndpoint.application_companion.common_enums import SteeringCommands, COMMANDS, INTERCOMM_TYPE
+from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_SIMULATOR_APPLICATION as SIMULATOR
+from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_INTERSCALEHUB_APPLICATION as INTERSCALE_HUB
+from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.default_directories_enum import DefaultDirectories
+from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.configurations_manager import ConfigurationsManager
+from EBRAINS_ConfigManager.workflow_configurations_manager.xml_parsers.xml2class_parser import Xml2ClassParser
+from EBRAINS_InterscaleHUB.Interscale_hub.interscalehub_enums import DATA_EXCHANGE_DIRECTION 
+
 '''
-Protjans 2014 simulaiton model with NEST
-For inspiration, look
-run_microcircuit.py (https://github.com/mfahdaz/nest-simulator/blob/ecc373fe83a82d133f562a4ed6cf180d07c39578/pynest/examples/Potjans_2014/run_microcircuit.py)
+Potjans 2014 simulaiton model with NEST
+based on example: https://github.com/mfahdaz/nest-simulator/blob/ecc373fe83a82d133f562a4ed6cf180d07c39578/pynest/examples/Potjans_2014/
 '''
-##############################################################################
+
 class NestAdapter:
     def __init__(self, p_configurations_manager, p_log_settings,
                  p_interscalehub_addresses,
@@ -36,15 +56,14 @@ class NestAdapter:
         # TODO load parameters from a single source
         self.__path_to_parameters_file = self._configurations_manager.get_directory(
         directory=DefaultDirectories.SIMULATION_RESULTS)
-        self.__sci_params = Xml2ClassParser(sci_params_xml_path_filename, self.__logger)
-        self.__parameters = Parameters(self.__path_to_parameters_file)
-
-        # TODO 3. create MPI intercomm
+        # self.__sci_params = Xml2ClassParser(sci_params_xml_path_filename, self.__logger)
+        # self.__parameters = Parameters(self.__path_to_parameters_file)
 
         # 4. Initialize port_names in the format as per nest-simulator
         # NOTE The MPI port_name needs to be in string format and must be sent to
         # nest-simulator in the following pattern:
         # "endpoint_address":<port name>
+        self.__interscalehub_NEST_TO_LFPy_address = None
         self.__init_port_names(p_interscalehub_addresses)
         self.__simulator = None
         self.__logger.debug(f"running on host_name:{os.uname()}")
@@ -57,49 +76,70 @@ class NestAdapter:
         '''
         # TODO refactor to match the (bi-directional) interscaleHub
         for interscalehub in interscalehub_addresses:
-            self.__logger.debug(f"running interscalehub: {interscalehub}")
-            # NEST_TO_LFPy RECEIVER endpoint
+            # endpoint to receive data from simulator
             if interscalehub.get(
                     INTERSCALE_HUB.DATA_EXCHANGE_DIRECTION.name) ==\
-                    DATA_EXCHANGE_DIRECTION.NEST_TO_LFPy.name:
+                    DATA_EXCHANGE_DIRECTION.NEST_TO_LFPY.name and interscalehub.get(
+                    INTERSCALE_HUB.INTERCOMM_TYPE.name) == INTERCOMM_TYPE.RECEIVER.name:
                 # get mpi port name
                 self.__interscalehub_NEST_TO_LFPy_address =\
                     "endpoint_address:"+interscalehub.get(
                         INTERSCALE_HUB.MPI_CONNECTION_INFO.name)
-                self.__logger.debug("Interscalehub_nest_to_tvb_address: "
-                                    f"{self.__interscalehub_NEST_TO_LFPy_address}")
+                self.__logger.debug("Interscalehub_receive_from_simulator_address: "
+                                f"{self.__interscalehub_NEST_TO_LFPy_address}")
 
     def execute_init_command(self):
         self.__logger.debug("executing INIT command")
         # 1. configure simulation model
         self.__logger.info("configure the network")
-        # TODO configure simulator
+        self.__simulator = network.Network(sim_dict, net_dict, stim_dict)
+        # setup connections with InterscaleHub
         self.__logger.info("preparing the simulator, and "
                            "establishing the connections")
-        # setup connections with InterscaleHub
+        self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
+        self.__logger.debug(f"connecting simulator")
+        self.__simulator.connect()
         self.__logger.info("connections are made")
         self.__logger.debug("INIT command is executed")
         # 2. return local minimum step size
+        # TODO determine the local minimum step size
+        local_minimum_step_size = 1.5  # NOTE hardcoded, will change later
         return local_minimum_step_size
 
     def execute_start_command(self, global_minimum_step_size):
         self.__logger.debug("executing START command")
         self.__logger.debug(f'global_minimum_step_size: {global_minimum_step_size}')
-        count = 0.0
         self.__logger.debug('starting simulation')
-        while count * global_minimum_step_size < self.__parameters.simulation_time:
-            self.__logger.info(f"simulation run counter: {count+1}")
-            # TODO run simulation
-            count += 1
+        # NOTE following is relavent if it is a cosimulation
+        # count = 0.0
+        # while count * global_minimum_step_size < self.__parameters.simulation_time:
+        #     self.__logger.info(f"simulation run counter: {count+1}")
+        #     # TODO run simulation
+        #     count += 1
+        # NOTE two subsequent calls to simulate ?
+        # self.__simulator.simulate(sim_dict['t_presim'])
+        self.__simulator.simulate(sim_dict['t_sim'])
 
-        self.__logger.info('ARBOR simulation is finished')
-        self.__logger.info("cleaning up ARBOR")
-        nest.Cleanup()
+        self.__logger.info('NEST simulation is finished')
+        self.__logger.info("cleaning up NEST")
+        # nest.Cleanup()
         # self.execute_end_command()
 
     def execute_end_command(self):
         self.__logger.debug("executing END command")
         # post processing
+        # Plot a spike raster of the simulated neurons and a box plot of the firing
+        # rates for each population.
+        # For visual purposes only, spikes 100 ms before and 100 ms after the thalamic
+        # stimulus time are plotted here by default.
+        # The computation of spike rates discards the presimulation time to exclude
+        # initialization artifacts.
+
+        raster_plot_interval = np.array([stim_dict['th_start'] - 100.0,
+                                        stim_dict['th_start'] + 100.0])
+        firing_rates_interval = np.array([sim_dict['t_presim'],
+                                        sim_dict['t_presim'] + sim_dict['t_sim']])
+        self.__simulator.evaluate(raster_plot_interval, firing_rates_interval)
         self.__logger.debug("post processing is done")
 
 

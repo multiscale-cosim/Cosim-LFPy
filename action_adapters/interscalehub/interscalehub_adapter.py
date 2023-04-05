@@ -18,9 +18,10 @@ import pickle
 import base64
 
 from common.utils.security_utils import check_integrity
-from action_adapters_alphabrunel.setup_result_directories import SetupResultDirectories
+# from action_adapters_alphabrunel.setup_result_directories import SetupResultDirectories
 from EBRAINS_InterscaleHUB.Interscale_hub.manager_nest_to_tvb import NestToTvbManager
 from EBRAINS_InterscaleHUB.Interscale_hub.manager_tvb_to_nest import TvbToNestManager
+from EBRAINS_InterscaleHUB.Interscale_hub.manager_nest_to_lfpy import NestToLFPyManager
 from EBRAINS_InterscaleHUB.Interscale_hub.interscalehub_enums import DATA_EXCHANGE_DIRECTION 
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.default_directories_enum import DefaultDirectories
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.configurations_manager import ConfigurationsManager
@@ -64,12 +65,12 @@ def run_wrapper(direction, configurations_manager, log_settings,
 
     # Case a: Nest to TVB inter-scale hub
     import socket
-    if direction == DATA_EXCHANGE_DIRECTION.NEST_TO_LFPy:
+    if direction == DATA_EXCHANGE_DIRECTION.NEST_TO_LFPY:
         # create directories to store parameter.json file, 
         # port information, and logs
         # print(f"__DEBUG__ NEST_TO_TVB *** host_name: {socket.gethostname()}")
-        SetupResultDirectories(path)  # NOTE: will be changed
-        hub = NestToTvbManager(parameters,
+        # SetupResultDirectories(path)  # NOTE: will be changed
+        hub = NestToLFPyManager(parameters,
                                configurations_manager,
                                log_settings,
                                sci_params_xml_path_filename=sci_params_xml_path_filename)
