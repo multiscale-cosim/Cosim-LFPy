@@ -72,9 +72,9 @@ echo "1" | sudo update-alternatives --config mpirun 1>/dev/null 2>&1 # --> choos
 # NOTE: Specific versions are required for some packages
 #pip install cython elephant mpi4py numpy==1.23.4 pyzmq requests testresources \
 #	pandas xarray
-pip install --no-cache --target=${CO_SIM_SITE_PACKAGES} \
+pip install --no-cache --target=${CO_SIM_SITE_PACKAGES} lfpykernels mpi4py
         # LFPy pspecific packages
-		lfpykernels 
+		 
 		
 # jupyter notebook stuff
 pip install jupyter markupsafe==2.0.1
