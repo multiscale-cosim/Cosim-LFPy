@@ -111,17 +111,22 @@ class NestAdapter:
         self.__logger.debug(f'global_minimum_step_size: {global_minimum_step_size}')
         self.__logger.debug('starting simulation')
         # NOTE following is relavent if it is a cosimulation
-        # count = 0.0
-        # while count * global_minimum_step_size < self.__parameters.simulation_time:
-        #     self.__logger.info(f"simulation run counter: {count+1}")
-        #     # TODO run simulation
-        #     count += 1
+        count = 0.0
+        min_step_size = 1.2
+        while count * min_step_size < sim_dict['t_sim']:
+            self.__logger.info(f"simulation run counter: {count+1}")
+            self.__logger.info(f"total simulation time: {sim_dict['t_sim']}")
+            # TODO run simulation
+            self.__simulator.simulate(min_step_size)
+            count += 1
         # NOTE two subsequent calls to simulate ?
         # self.__simulator.simulate(sim_dict['t_presim'])
-        self.__simulator.simulate(sim_dict['t_sim'])
+        # self.__simulator.simulate(sim_dict['t_sim'])
 
+        
         self.__logger.info('NEST simulation is finished')
         self.__logger.info("cleaning up NEST")
+        self.__simulator.cleanup()
         # nest.Cleanup()
         # self.execute_end_command()
 

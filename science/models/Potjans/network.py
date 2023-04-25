@@ -137,6 +137,9 @@ class Network:
 
         # nest.Simulate(t_sim)
         nest.Run(t_sim)
+        
+
+    def cleanup(self):
         nest.Cleanup()
 
     def evaluate(self, raster_plot_interval, firing_rates_interval):
@@ -280,17 +283,17 @@ class Network:
             print('RNG seed: {} '.format(rng_seed))
             print('  Total number of virtual processes: {}'.format(N_vp))
 
-        nest.resolution = self.sim_dict['sim_resolution']
-        nest.rng_seed = rng_seed
-        nest.overwrite_files = self.sim_dict['overwrite_files']
-        nest.print_time = self.sim_dict['print_time']
-        nest.data_path = self.data_path
-        # nest.SetKernelStatus(
-        #     {"data_path": self.data_path,
-        #      "overwrite_files": self.sim_dict['overwrite_files'],
-        #      "print_time": self.sim_dict['print_time'],
-        #      "resolution": self.sim_dict['sim_resolution'],
-        #      "rng_seed": rng_seed})
+        # nest.resolution = self.sim_dict['sim_resolution']
+        # nest.rng_seed = rng_seed
+        # nest.overwrite_files = self.sim_dict['overwrite_files']
+        # nest.print_time = self.sim_dict['print_time']
+        # nest.data_path = self.data_path
+        nest.SetKernelStatus(
+            {"data_path": self.data_path,
+             "overwrite_files": self.sim_dict['overwrite_files'],
+             "print_time": self.sim_dict['print_time'],
+             "resolution": self.sim_dict['sim_resolution'],
+             "rng_seed": rng_seed})
         
 
     def __create_neuronal_populations(self):

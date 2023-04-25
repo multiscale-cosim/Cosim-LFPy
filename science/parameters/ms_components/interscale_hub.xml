@@ -10,7 +10,7 @@
         <time_syncronization datatype="float">1.2</time_syncronization>
         <!-- resolution -->
         <dt datatype="float">0.1</dt>
-        <nb_neurons datatype="int">100</nb_neurons>
+        <nb_neurons datatype="int">77169</nb_neurons>
         <!-- rate of poisson generator ( due property of poisson process) -->
         <nb_brain_synapses datatype="int">1</nb_brain_synapses>
 
