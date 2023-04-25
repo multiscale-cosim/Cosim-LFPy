@@ -72,9 +72,10 @@ echo "1" | sudo update-alternatives --config mpirun 1>/dev/null 2>&1 # --> choos
 # NOTE: Specific versions are required for some packages
 #pip install cython elephant mpi4py numpy==1.23.4 pyzmq requests testresources \
 #	pandas xarray
-pip install --no-cache --target=${CO_SIM_SITE_PACKAGES} \
+pip install --no-cache --target=${CO_SIM_SITE_PACKAGES} lfpykernels mpi4py elephant 
+	# elephant needed as remnant from other usecases, to be removed
         # LFPy pspecific packages
-		lfpykernels 
+		 
 		
 # jupyter notebook stuff
 pip install jupyter markupsafe==2.0.1
@@ -173,7 +174,7 @@ echo \$PATH | grep ${CO_SIM_NEST}/bin 1>/dev/null 2>&1
 [ \$? -eq 0 ] || export PATH=$CO_SIM_NEST/bin:\${PATH}
 python3 \${CO_SIM_USE_CASE_ROOT_PATH}/main.py \\
     --global-settings \${CO_SIM_MODULES_ROOT_PATH}/EBRAINS_WorkflowConfigurations/general/global_settings.xml \\
-    --action-plan \${CO_SIM_MODULES_ROOT_PATH}/EBRAINS_WorkflowConfigurations/usecase/local/plans/cosim_alpha_brunel_local.xml
+    --action-plan \${CO_SIM_MODULES_ROOT_PATH}/EBRAINS_WorkflowConfigurations/usecase/local/plans/cosim_nest_lfpy_potjans_2014_local.xml
 .EORF
 
 cat <<.EOKF >${CO_SIM_ROOT_PATH}/kill_co_sim_PIDs.sh
