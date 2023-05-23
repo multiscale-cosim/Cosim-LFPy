@@ -74,7 +74,7 @@ class PotjansDiesmannKernels:
         self.calculate_kernels = calculate_kernels
         self.plot_conn_data = True
         self.plot_kernels = True
-        self.plot_firing_rate = True
+        self.plot_firing_rate = False
 
         with open(binzegger_file) as f:
             conn_dict = json.load(f)
@@ -92,8 +92,8 @@ class PotjansDiesmannKernels:
         self._load_pathway_kernels()
         self._find_kernels()
 
-        self._load_firing_rates_from_file()
-        self.plot_lfps()
+        # self._load_firing_rates_from_file()
+        # self.plot_lfps()
 
     def _set_kernel_params(self):
         # Ignore first 200 ms of simulation in kernel prediction:
@@ -637,73 +637,33 @@ class PotjansDiesmannKernels:
 
         return pop_spike_times, firing_rates
 
-    def plot_lfps(self):
-        pop_lfps = {}
-        summed_lfp = np.zeros((self.num_elecs, len(self.bins) - 1))
-        for pop_idx, pop_name in enumerate(self.presyn_pops):
-            lfp = np.zeros((self.num_elecs, len(self.bins) - 1))
-            for elec_idx in range(self.num_elecs):
-                k_ = self.pop_kernels[pop_name][elec_idx]
-                k__ = np.zeros(2 * self.kernel_length + 1)
-                k__[(len(k_) + 1):] = k_
-                lfp[elec_idx] = np.convolve(k__, self.firing_rates[pop_name],
-                                            mode="same")
-            pop_lfps[pop_name] = lfp
-            summed_lfp += lfp
-
-        for pop_idx, pop_name in enumerate(self.presyn_pops):
-            plt.close('all')
-            fig = plt.figure(figsize=[12, 8])
-            ax_k = fig.add_axes([0.07, 0.1, 0.25, 0.6], title="LFP kernel",
-                                xlabel="time (ms)", ylim=[-1600, 200])
-            ax_fr = fig.add_axes([0.4, 0.8, 0.55, 0.15], title="firing rate",
-                                 xlabel="time (ms)", xlim=[675, 750])
-
-            ax_lfp = fig.add_axes([0.4, 0.1, 0.55, 0.6], title="LFP",
-                                  xlabel="time (ms)", ylim=[-1600, 200],
-                                  xlim=[675, 750])
-
-            ax_fr.plot(self.bins[:-1], self.firing_rates[pop_name], c='k')
-
-            k_ = self.pop_kernels[pop_name]
-            t_k = np.arange(k_.shape[1]) * self.dt
-            k_norm = np.max(np.abs(k_))
-
-            lfp = pop_lfps[pop_name]
-            lfp_norm = np.max(np.abs(lfp))
-
-            if not lfp_norm == 0.0:
-                for elec_idx in range(self.num_elecs):
-                    ax_k.plot(t_k, k_[elec_idx] / k_norm * self.dz +
-                              self.elec_params["z"][elec_idx], c='k')
-                    ax_lfp.plot(self.bins[:-1], lfp[elec_idx] / lfp_norm * self.dz +
-                                self.elec_params["z"][elec_idx], c='k')
-
-            ax_lfp.plot([700, 700], [-200, -200 + self.dz], c='gray', lw=1.5)
-            ax_lfp.text(710, -200 + self.dz / 2, f"{lfp_norm * 1000: 1.2f} µV",
-                        color="gray")
-
-            ax_k.plot([30, 30], [-1000, -1000 + self.dz], c='gray', lw=1.5)
-            ax_k.text(31, -1000 + self.dz / 2, f"{k_norm * 1000: 1.2f} µV",
-                      color="gray")
-            fig.savefig(os.path.join(self.fig_folder, f"summary_{pop_name}.png"))
+    def plot_lfps(self, time_array, lfp, firing_rates):
 
         plt.close('all')
-        fig = plt.figure(figsize=[4, 8])
+        fig = plt.figure(figsize=[8, 8])
 
-        ax_lfp = fig.add_subplot(111, title="summed LFP", xlabel="time (ms)",
+        ax_fr = fig.add_subplot(212, title="firing rates", xlabel="time (ms)",
+                                 xlim=[690, 750])
+
+        max_fr = np.max([np.max(np.abs(fr_)) for fr_ in firing_rates.values()])
+
+        for p_idx, pop in enumerate(self.presyn_pops):
+            ax_fr.plot(time_array, firing_rates[pop] / max_fr + pop, label=pop)
+        ax_fr.legend(frameon=False)
+
+        ax_lfp = fig.add_subplot(212, title="LFP", xlabel="time (ms)",
                                  ylim=[-1600, 200], xlim=[690, 750])
 
-        lfp_norm = np.max(np.abs(summed_lfp))
+        lfp_norm = np.max(np.abs(lfp))
         for elec_idx in range(self.num_elecs):
-            ax_lfp.plot(self.bins[:-1], summed_lfp[elec_idx] / lfp_norm * self.dz +
+            ax_lfp.plot(time_array, lfp[elec_idx] / lfp_norm * self.dz +
                         self.elec_params["z"][elec_idx], c='k')
         ax_lfp.plot([730, 730], [-100, -100 + self.dz], c='gray', lw=1.5)
         ax_lfp.text(732, -100 + self.dz / 2, f"{lfp_norm * 1000: 1.2f} µV",
                     color="gray")
-        fig.savefig(os.path.join(self.fig_folder, f"summed_LFP.png"))
+        fig.savefig(os.path.join(self.fig_folder, f"summary_LFP.png"))
 
-    def update_lfp(self, t_idx, firing_rate):
+    def update_lfp(self, lfp, t_idx, firing_rate):
         """
         Calculate LFP resulting from our kernel, given a
         firing rate at a given time index
@@ -712,7 +672,10 @@ class PotjansDiesmannKernels:
         # one timestep longer
 
         # self.lfp.append([0] * self.num_elecs)
-        self.lfp = np.append(self.lfp, np.zeros((self.num_elecs, 1)), axis=1)
+        if lfp is None:
+            lfp = np.zeros((self.num_elecs, self.kernel_length - 1))
+
+        lfp = np.append(lfp, np.zeros((self.num_elecs, 1)), axis=1)
         # Find the time indexes where the LFP is calculated:
         window_idx0 = t_idx - int(self.kernel_length / 2)
         window_idx1 = t_idx + int(self.kernel_length / 2)
@@ -725,9 +688,8 @@ class PotjansDiesmannKernels:
         for p_idx, pop in enumerate(self.presyn_pops):
             for elec_idx in range(self.num_elecs):
                 lfp_ = firing_rate[pop] * self.pop_kernels[pop][elec_idx][k_idx0:]
-                self.lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
-
-        return self.lfp
+                lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
+        return lfp
 
 
 if __name__ == '__main__':
@@ -738,9 +700,30 @@ if __name__ == '__main__':
     from science.parameters.Potjans.stimulus_params import stim_dict
     from science.parameters.Potjans.network_params import net_dict
     from science.parameters.Potjans.sim_params import sim_dict
+
+    # This is a necessary prestep, and the first time this is being run
+    # calculate_kernels must be 'True'.
     PD_kernels = PotjansDiesmannKernels(sim_dict,
                                         net_dict,
                                         stim_dict,
                                         network_model_folder,
                                         calculate_kernels=True)
 
+    # Example of how this could be used, given a functioning
+    # version of self._mediator.spikes_to_rate(count, size_at_index=-2)
+    # which is here assumed to return the time point (in ms), and a dictionary
+    # of the firing rate of each population at this time point.
+
+    # if rank == 0:
+        # firing_rates = {pop: [] for pop in PD_kernels.presyn_pops}
+        # time_array = []
+        # lfp = np.zeros((PD_kernels.num_elecs, PD_kernels.kernel_length - 1))
+        #
+        # for t_idx in range(1000):
+        #     time, firing_rates_t_idx = self._mediator.spikes_to_rate(count,
+        #                                                       size_at_index=-2)
+        #     time_array.append(time)
+        #     for p_idx, pop in enumerate(PD_kernels.presyn_pops):
+        #         firing_rates[pop].append(firing_rates_t_idx[pop])
+        #      lfp_array = PD_kernels.update_lfp(t_idx, firing_rates_t_idx)
+        #PD_kernels.plot_lfp(time_array, lfp, firing_rates)
