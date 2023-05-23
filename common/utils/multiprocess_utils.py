@@ -92,7 +92,7 @@ def stop_preemptory(logger, process):
     exit_status = process.poll()
     # Worst Case, process could not be terminated/killed
     if exit_status is None:
-        return terminate_with_error_loudly(
+        return terminate_with_error_loudly(logger,
             "could not terminate the process "
             f"PID={process.pid}")
 
