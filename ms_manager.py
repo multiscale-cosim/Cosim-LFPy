@@ -124,10 +124,14 @@ class MSManager:
         # STEP 1 - Checking command line parameters
         ########
         try:
-            self.__args = args.arg_parse()
+            # self.__args = args.arg_parse()
+            self.__args = args.get_parsed_CLI_arguments()
         except SystemExit:
             # argument parser has reported some issue with the arguments
             return enums.CoSimulatorReturnCodes.PARAMETER_ERROR
+        
+        # set whether interactive steering is enabled from CLI arguments
+        self.__is_interactive = self.__args.interactive
 
         ########
         # STEP 2 - Setting Up the Configuration Manager
@@ -204,13 +208,13 @@ class MSManager:
         # Parameters -> Could contain references to CO_SIM_ variables and become new CO_SIM_ variables
         # STEP 4.4 - Getting the parameters found on the Co-Simulation Plan XML file
         self.__action_plan_parameters_dict = self.__plan_xml_manager.get_parameters_dict()
-
+        
         # STEP 4.5 -    Validating the references to the CO_SIM_* variables on the <parameters> sections
         #               by creating the new CO_SIM_* variables by means of the variables manager
         if not enums.ParametersReturnCodes.PARAMETER_OK == \
                self.__variables_manager.create_variables_from_parameters_dict(self.__action_plan_parameters_dict):
             return enums.CoSimulatorReturnCodes.PARAMETER_ERROR
-
+        
         # STEP 4.6 - Creates Co-Simulation variables based on the information
         #            set on the variables and parameters sections of the processing XML action plan file
         #            e.g. CO_SIM_EXECUTION_ENVIRONMENT = <local|cluster>
@@ -367,10 +371,13 @@ class MSManager:
                                              configurations_manager=self.__configurations_manager,  # config manager
                                              # scientific parameters
                                              actions_sci_params_dict=self.__actions_sci_params_xml_files_dict,
+                                             # if interactive steering is enabled
+                                             is_interactive=self.__is_interactive,
                                              # zmq ports
                                              communication_settings_dict=self.__communication_settings_dict,
                                              # nodes where to deploy Co-Sim services
-                                             services_deployment_dict=self.__services_deployment_dict)
+                                             services_deployment_dict=self.__services_deployment_dict
+                                             )
 
         if not launching_manager.carry_out_action_plan() == enums.LauncherReturnCodes.LAUNCHER_OK:
             self.__logger.error('Error(s) were reported, check the errors log on {}'.format(
