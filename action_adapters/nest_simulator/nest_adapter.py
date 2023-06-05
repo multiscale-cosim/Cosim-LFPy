@@ -19,12 +19,13 @@ import pickle
 import base64
 import ast
 
+from mpi4py import MPI
+
 from science.models.Potjans import network
 from science.parameters.Potjans.stimulus_params import stim_dict
 from science.parameters.Potjans.network_params import net_dict
 from science.parameters.Potjans.sim_params import sim_dict
-# import nest
-
+from action_adapters.resource_usage_monitor_adapter import ResourceMonitorAdapter   
 from common.utils.security_utils import check_integrity
 
 from EBRAINS_RichEndpoint.application_companion.common_enums import SteeringCommands, COMMANDS, INTERCOMM_TYPE
@@ -43,6 +44,7 @@ based on example: https://github.com/mfahdaz/nest-simulator/blob/ecc373fe83a82d1
 class NestAdapter:
     def __init__(self, p_configurations_manager, p_log_settings,
                  p_interscalehub_addresses,
+                 is_monitoring_enabled,
                  sci_params_xml_path_filename=None):
         # 1. set up logger
         self._log_settings = p_log_settings
@@ -52,6 +54,14 @@ class NestAdapter:
         log_configurations=self._log_settings,
         target_directory=DefaultDirectories.SIMULATION_RESULTS)
         
+
+        # MPI rank
+        self.__comm = MPI.COMM_WORLD
+        self.__rank = self.__comm.Get_rank()
+        self.__my_pid = os.getpid()
+        self.__logger.info(f"size: {self.__comm.Get_size()}, my rank: {self.__rank}, "
+                           f"host_name:{os.uname()}")
+
         # 2. Load parameters for the model
         # TODO load parameters from a single source
         self.__path_to_parameters_file = self._configurations_manager.get_directory(
@@ -66,8 +76,30 @@ class NestAdapter:
         self.__interscalehub_NEST_TO_LFPy_address = None
         self.__init_port_names(p_interscalehub_addresses)
         self.__simulator = None
+        self.__is_monitoring_enabled = is_monitoring_enabled
+        if self.__is_monitoring_enabled:
+            self.__resource_usage_monitor = ResourceMonitorAdapter(self._configurations_manager,
+                                                               self._log_settings,
+                                                               self.pid,
+                                                               "NEST")
         self.__logger.debug(f"running on host_name:{os.uname()}")
         self.__logger.info("initialized")
+
+
+    @property
+    def rank(self):
+        return self.__rank
+    
+    @property
+    def pid(self):
+        return self.__my_pid
+
+    def __log_message(self, msg):
+        "helper function to control the log emissions as per rank"
+        if self.rank == 0:        
+            self.__logger.info(msg)
+        else:
+            self.__logger.debug(msg)
 
     def __init_port_names(self, interscalehub_addresses):
         '''
@@ -91,15 +123,15 @@ class NestAdapter:
     def execute_init_command(self):
         self.__logger.debug("executing INIT command")
         # 1. configure simulation model
-        self.__logger.info("configure the network")
+        self.__log_message("configure the network")
         self.__simulator = network.Network(sim_dict, net_dict, stim_dict)
         # setup connections with InterscaleHub
-        self.__logger.info("preparing the simulator, and "
+        self.__log_message("preparing the simulator, and "
                            "establishing the connections")
         self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
         self.__logger.debug(f"connecting simulator")
         self.__simulator.connect()
-        self.__logger.info("connections are made")
+        self.__log_message("connections are made")
         self.__logger.debug("INIT command is executed")
         # 2. return local minimum step size
         # TODO determine the local minimum step size
@@ -108,14 +140,16 @@ class NestAdapter:
 
     def execute_start_command(self, global_minimum_step_size):
         self.__logger.debug("executing START command")
+        if self.__is_monitoring_enabled:
+            self.__resource_usage_monitor.start_monitoring()
         self.__logger.debug(f'global_minimum_step_size: {global_minimum_step_size}')
         self.__logger.debug('starting simulation')
         # NOTE following is relavent if it is a cosimulation
         count = 0.0
         min_step_size = 1.2
         while count * min_step_size < sim_dict['t_sim']:
-            self.__logger.info(f"simulation run counter: {count+1}")
-            self.__logger.info(f"total simulation time: {sim_dict['t_sim']}")
+            self.__log_message(f"simulation run counter: {count+1}")
+            self.__log_message(f"total simulation time: {sim_dict['t_sim']}")
             # TODO run simulation
             self.__simulator.simulate(min_step_size)
             count += 1
@@ -132,6 +166,8 @@ class NestAdapter:
 
     def execute_end_command(self):
         self.__logger.debug("executing END command")
+        if self.__is_monitoring_enabled:
+            self.__resource_usage_monitor.stop_monitoring()
         # post processing
         # Plot a spike raster of the simulated neurons and a box plot of the firing
         # rates for each population.
@@ -149,7 +185,8 @@ class NestAdapter:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5:        
+    # TODO better handling of arguments parsing
+    if len(sys.argv) == 6:        
         # 1. parse arguments
         # unpickle configurations_manager object
         configurations_manager = pickle.loads(base64.b64decode(sys.argv[1]))
@@ -157,20 +194,25 @@ if __name__ == "__main__":
         log_settings = pickle.loads(base64.b64decode(sys.argv[2]))
         # get science parameters XML file path
         p_sci_params_xml_path_filename = sys.argv[3]
+        # flag indicating whether resource usage monitoring is enabled
+        is_monitoring_enabled = pickle.loads(base64.b64decode(sys.argv[4]))
         # get interscalehub connection details
-        p_interscalehub_address = pickle.loads(base64.b64decode(sys.argv[4]))
+        p_interscalehub_address = pickle.loads(base64.b64decode(sys.argv[5]))
+        
 
         # 2. security check of pickled objects
         # it raises an exception, if the integrity is compromised
         check_integrity(configurations_manager, ConfigurationsManager)
         check_integrity(log_settings, dict)
         check_integrity(p_interscalehub_address, list)
+        check_integrity(is_monitoring_enabled, bool)
 
         # 3. everything is fine, configure simulator
         nest_adapter = NestAdapter(
             configurations_manager,
             log_settings,
             p_interscalehub_address,
+            is_monitoring_enabled,
             sci_params_xml_path_filename=p_sci_params_xml_path_filename)
 
         # 4. execute 'INIT' command which is implicit with when laucnhed
@@ -183,13 +225,15 @@ if __name__ == "__main__":
         # {'PID': <pid>, 'LOCAL_MINIMUM_STEP_SIZE': <step size>}
 
         # prepare the response
-        pid_and_local_minimum_step_size = \
-            {SIMULATOR.PID.name: os.getpid(),
-            SIMULATOR.LOCAL_MINIMUM_STEP_SIZE.name: local_minimum_step_size}
-        
-        # send the response
-        # NOTE Application Manager will read the stdout stream via PIPE
-        print(f'{pid_and_local_minimum_step_size}')
+        my_rank = nest_adapter.rank
+        if my_rank == 0:
+            pid_and_local_minimum_step_size = \
+                {SIMULATOR.PID.name: os.getpid(),
+                SIMULATOR.LOCAL_MINIMUM_STEP_SIZE.name: local_minimum_step_size}
+            
+            # send the response
+            # NOTE Application Manager will read the stdout stream via PIPE
+            print(f'{pid_and_local_minimum_step_size}')
 
         # 6. fetch next command from Application Manager
         user_action_command = input()
@@ -220,6 +264,6 @@ if __name__ == "__main__":
             print(f'unknown command: {current_steering_command}', file=sys.stderr)
             sys.exit(1)
     else:
-        print(f'missing argument[s]; required: 5, received: {len(sys.argv)}')
+        print(f'missing argument[s]; required: 6, received: {len(sys.argv)}')
         print(f'Argument list received: {str(sys.argv)}')
         sys.exit(1)
