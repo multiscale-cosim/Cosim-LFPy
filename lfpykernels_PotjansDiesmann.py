@@ -5,13 +5,14 @@ import matplotlib
 matplotlib.use("AGG")
 import matplotlib.pyplot as plt
 import scipy.stats as st
-import neuron
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+# (NEURON MUST BE AFTER MPI SOMETIMES)
+import neuron
 # from torbjone/LFPykernels:
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
