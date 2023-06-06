@@ -129,14 +129,14 @@ class PotjansDiesmannKernels:
         self.pop_clrs = {pop_name: plt.cm.rainbow(i / (len(self.presyn_pops) - 1))
                          for i, pop_name in enumerate(self.presyn_pops)}
 
-        if net_dict['N_scaling'] != 1 and rank == 0:
+        if self.net_dict['N_scaling'] != 1 and rank == 0:
             print("Scaling population sizes by factor {:1.2f}".format(
                 self.net_dict['N_scaling']))
 
-        pop_sizes = np.array(net_dict['full_num_neurons']) * \
-            net_dict['N_scaling']
+        pop_sizes = np.array(self.net_dict['full_num_neurons']) * \
+            self.net_dict['N_scaling']
         self.pop_sizes = np.r_[pop_sizes,
-                               [stim_dict["num_th_neurons"]]]
+                               [self.stim_dict["num_th_neurons"]]]
 
         self.layers = ["1", "23", "4", "5", "6"]
         self.layer_boundaries = {
