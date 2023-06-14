@@ -15,9 +15,9 @@ size = comm.Get_size()
 import neuron
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
-from science.models.Potjans.stimulus_params import stim_dict
-from science.models.Potjans.network_params import net_dict
-from science.models.Potjans.sim_params import sim_dict
+from science.parameters.Potjans.stimulus_params import stim_dict
+from science.parameters.Potjans.network_params import net_dict
+from science.parameters.Potjans.sim_params import sim_dict
 
 mod_folder = os.path.join('..', 'mod')
 mech_loaded = neuron.load_mechanisms(mod_folder)
