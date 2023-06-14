@@ -13,22 +13,24 @@ size = comm.Get_size()
 
 # (NEURON MUST BE AFTER MPI SOMETIMES)
 import neuron
-# from torbjone/LFPykernels:
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
-mod_folder = os.path.join('science', 'mod')
+from science.models.Potjans.stimulus_params import stim_dict
+from science.models.Potjans.network_params import net_dict
+from science.models.Potjans.sim_params import sim_dict
+
+mod_folder = os.path.join('..', 'mod')
 mech_loaded = neuron.load_mechanisms(mod_folder)
 if not mech_loaded:
     os.system(f'cd {mod_folder} && nrnivmodl && cd -')
     mech_loaded = neuron.load_mechanisms(mod_folder)
 assert mech_loaded
 
-
-binzegger_file = os.path.join('science', 'parameters',
+binzegger_file = os.path.join('..', 'parameters',
                               'binzegger_connectivity_table.json')
-morphology_folder = os.path.join('science', 'models',
+morphology_folder = os.path.join('..', 'models',
                                  'morphologies', 'stretched')
-template_folder = os.path.join('science', 'models', 'morphologies')
+template_folder = os.path.join('..', 'models', 'morphologies')
 
 class PotjansDiesmannKernels:
     """
@@ -37,11 +39,9 @@ class PotjansDiesmannKernels:
         x: Presynaptic subpopulation (e.g. p4)
         Y: Postsynaptic population
         y: Postsynaptic subpopulation
-
     """
 
-    def __init__(self, sim_dict, net_dict, stim_dict,
-                 network_model_folder, calculate_kernels=True):
+    def __init__(self, overwrite_kernels=False):
 
         self.sim_dict = sim_dict
         self.net_dict = net_dict
@@ -49,6 +49,7 @@ class PotjansDiesmannKernels:
         self.network_model_folder = network_model_folder
         self.neuron_params = net_dict['neuron_params']
         self.dt = sim_dict['sim_resolution']
+        self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
 
         # Extract some useful neuron parameters:
         self.tau_syn = self.neuron_params['tau_syn']
@@ -72,7 +73,7 @@ class PotjansDiesmannKernels:
             self.fig_folder += '_with_thalamic'
         os.makedirs(self.fig_folder, exist_ok=True)
 
-        self.calculate_kernels = calculate_kernels
+        self.overwrite_kernels = overwrite_kernels
         self.plot_conn_data = True
         self.plot_kernels = True
         self.plot_firing_rate = False
@@ -85,11 +86,11 @@ class PotjansDiesmannKernels:
         self._find_layer_specific_pathways()
         self._set_extracellular_elec_params()
         self._set_kernel_params()
-        if self.calculate_kernels:
-            self._calculate_all_pathway_kernels()
-            # The calculation of pathway kernels must be completed on all
-            # ranks before we continue
-            comm.Barrier()
+
+        self._calculate_all_pathway_kernels()
+        # The calculation of pathway kernels must be completed on all
+        # ranks before we continue
+        comm.Barrier()
         self._load_pathway_kernels()
         self._find_kernels()
 
@@ -308,7 +309,7 @@ class PotjansDiesmannKernels:
                     self.syn_pathways[pathway_name] += syn_pathways_subpops[
                                                                 subpop_pathway_name] * rel_frac_
 
-        if self.plot_conn_data:
+        if self.plot_conn_data and rank == 0:
             # Plot layer-specific connectivity data, similar
             # to Fig. 5D in Hagen et al. (2016)
             fig = plt.figure(figsize=[10, 10])
@@ -348,13 +349,18 @@ class PotjansDiesmannKernels:
         presyn_pop_idx = np.where([p_ == presyn_pop
                                   for p_ in self.presyn_pops])[0][0]
 
-        pathway_name = f'{postsyn_pop}:{presyn_pop}'
         postsyn_l_idx = np.where([l_ == postsyn_pop[1:-1]
                                   for l_ in self.layers])[0][0]
+        pathway_name = f'{postsyn_pop}:{presyn_pop}'
+        filename = os.path.join(self.sim_saveforlder,
+                             f'kernel_{pathway_name}.npy')
 
         if np.abs(self.conn_probs[postsyn_pop_idx, presyn_pop_idx]) < 1e-9:
             # No pathway from presyn_pop to postsyn_pop
             #self.H[pathway_name] = None
+            return
+
+        if os.path.isfile(filename) and not self.overwrite_kernels:
             return
 
         layered_input = self.syn_pathways[pathway_name]
@@ -467,10 +473,9 @@ class PotjansDiesmannKernels:
                                  g_eff=self.g_eff, fir=True)
 
         k_ = H_XY['GaussCylinderPotential']
-        np.save(os.path.join(self.sim_saveforlder,
-                             f'kernel_{pathway_name}.npy'), k_)
 
-        # self.H[pathway_name] = k_
+        # Save kernel to file
+        np.save(filename, k_)
 
         if self.plot_kernels:
             t_k = np.arange(k_.shape[1]) * self.dt
@@ -692,23 +697,32 @@ class PotjansDiesmannKernels:
                 lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
         return lfp
 
+    def get_firingrate_from_buffer(self, buffer, fr_dict):
+        """ Get firing rate from buffer """
+
+        for pop_ID in set(buffer[:, 0]):
+            times = buffer[buffer[:, 0] == pop_ID][:, 2]
+            assert times[-1] <= self.tvec[-1], "spiketime after simulation end"
+
+            if int(pop_ID) not in fr_dict.keys():
+                fr_dict[int(pop_ID)] = np.zeros(len(self.tvec))
+
+            for t_ in times:
+                spiketime_idx = np.argmin(np.abs(t_ - self.tvec))
+                fr_dict[int(pop_ID)][spiketime_idx] += 1
+        return fr_dict
+
 
 if __name__ == '__main__':
 
     # Get parameters from Potjans & Diesmann simulation
     network_model_folder = "Potjans_2014"
 
-    from science.parameters.Potjans.stimulus_params import stim_dict
-    from science.parameters.Potjans.network_params import net_dict
-    from science.parameters.Potjans.sim_params import sim_dict
+
 
     # This is a necessary prestep, and the first time this is being run
     # calculate_kernels must be 'True'.
-    PD_kernels = PotjansDiesmannKernels(sim_dict,
-                                        net_dict,
-                                        stim_dict,
-                                        network_model_folder,
-                                        calculate_kernels=True)
+    PD_kernels = PotjansDiesmannKernels()
 
     # Example of how this could be used, given a functioning
     # version of self._mediator.spikes_to_rate(count, size_at_index=-2)
