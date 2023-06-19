@@ -15,22 +15,25 @@ size = comm.Get_size()
 import neuron
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
+import science
 from science.parameters.Potjans.stimulus_params import stim_dict
 from science.parameters.Potjans.network_params import net_dict
 from science.parameters.Potjans.sim_params import sim_dict
 
-mod_folder = os.path.join('..', 'mod')
+use_case_folder = science.__path__[0]
+mod_folder = os.path.join(use_case_folder, 'mod')
 mech_loaded = neuron.load_mechanisms(mod_folder)
 if not mech_loaded:
     os.system(f'cd {mod_folder} && nrnivmodl && cd -')
     mech_loaded = neuron.load_mechanisms(mod_folder)
+    os.system(f'cd -')
 assert mech_loaded
 
-binzegger_file = os.path.join('..', 'parameters',
+binzegger_file = os.path.join(use_case_folder, 'parameters',
                               'binzegger_connectivity_table.json')
-morphology_folder = os.path.join('..', 'models',
+morphology_folder = os.path.join(use_case_folder, 'models',
                                  'morphologies', 'stretched')
-template_folder = os.path.join('..', 'models', 'morphologies')
+template_folder = os.path.join(use_case_folder, 'models', 'morphologies')
 
 class PotjansDiesmannKernels:
     """
