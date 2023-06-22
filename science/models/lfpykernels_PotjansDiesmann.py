@@ -35,6 +35,7 @@ morphology_folder = os.path.join(use_case_folder, 'models',
                                  'morphologies', 'stretched')
 template_folder = os.path.join(use_case_folder, 'models', 'morphologies')
 
+
 class PotjansDiesmannKernels:
     """
     Convention:
@@ -44,12 +45,12 @@ class PotjansDiesmannKernels:
         y: Postsynaptic subpopulation
     """
 
-    def __init__(self, overwrite_kernels=False):
+    def __init__(self, spike_recorder_ids, overwrite_kernels=False):
 
         self.sim_dict = sim_dict
         self.net_dict = net_dict
         self.stim_dict = stim_dict
-        self.network_model_folder = network_model_folder
+        # self.network_model_folder = network_model_folder
         self.neuron_params = net_dict['neuron_params']
         self.dt = sim_dict['sim_resolution']
         self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
@@ -68,10 +69,10 @@ class PotjansDiesmannKernels:
         self.PSC_over_PSP = 1. / (pre * (frac ** self.tau_m -
                                          frac ** self.tau_syn)) * 1e-3  # nA
 
-        self.sim_saveforlder = 'sim_results'
+        self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
         os.makedirs(self.sim_saveforlder, exist_ok=True)
 
-        self.fig_folder = 'figures'
+        self.fig_folder = os.path.join(use_case_folder, 'models', 'figures')
         if stim_dict['thalamic_input']:
             self.fig_folder += '_with_thalamic'
         os.makedirs(self.fig_folder, exist_ok=True)
@@ -85,7 +86,7 @@ class PotjansDiesmannKernels:
             conn_dict = json.load(f)
         self.conn_data = conn_dict['data']
 
-        self._prepare_populations()
+        self._prepare_populations(spike_recorder_ids)
         self._find_layer_specific_pathways()
         self._set_extracellular_elec_params()
         self._set_kernel_params()
@@ -97,6 +98,8 @@ class PotjansDiesmannKernels:
         self._load_pathway_kernels()
         self._find_kernels()
 
+        self.fr_dict = {pop_name: np.zeros(len(self.tvec)) for pop_name in self.presyn_pops}
+        self.lfp = np.zeros((self.num_elecs, len(self.tvec)))
         # self._load_firing_rates_from_file()
         # self.plot_lfps()
 
@@ -105,7 +108,7 @@ class PotjansDiesmannKernels:
         self.TRANSIENT = 200
         self.t_X = self.TRANSIENT
         self.tau = 50  # time lag relative to spike for kernel predictions
-        self.kernel_length = int(self.tau / self.dt)
+        self.kernel_length = 2 * int(self.tau / self.dt)
         self.g_eff = False
 
     def _set_extracellular_elec_params(self):
@@ -122,14 +125,21 @@ class PotjansDiesmannKernels:
         self.dz = np.abs(self.elec_params['z'][1] -
                          self.elec_params['z'][0])
 
-    def _prepare_populations(self):
+    def _prepare_populations(self, spike_recorder_ids):
         """
         Set up the modelled neural populations, and declare
         their respective morphologies etc.
         """
         pop_names = self.net_dict['populations']
+
         self.presyn_pops = pop_names + ['TC']
         self.postsyn_pops = pop_names
+        # try:
+        self.pop_IDs = {spike_recorder_id: pop_name
+                            for spike_recorder_id, pop_name in zip(spike_recorder_ids, self.presyn_pops)}
+        # except:
+        #     self.pop_IDs = {spike_recorder_id: pop_name
+        #                     for spike_recorder_id, pop_name in zip(spike_recorder_ids, pop_names)}
 
         self.pop_clrs = {pop_name: plt.cm.rainbow(i / (len(self.presyn_pops) - 1))
                          for i, pop_name in enumerate(self.presyn_pops)}
@@ -473,7 +483,7 @@ class PotjansDiesmannKernels:
         H_XY = kernel.get_kernel(probes=[gauss_cyl_potential],
                                  Vrest=self.E_L, dt=self.dt, X=presyn_pop,
                                  t_X=self.t_X, tau=self.tau,
-                                 g_eff=self.g_eff, fir=True)
+                                 g_eff=self.g_eff, fir=False)
 
         k_ = H_XY['GaussCylinderPotential']
 
@@ -646,33 +656,38 @@ class PotjansDiesmannKernels:
 
         return pop_spike_times, firing_rates
 
-    def plot_lfps(self, time_array, lfp, firing_rates):
+    def plot_final_results(self, fig_name='summary_LFP'):
 
         plt.close('all')
         fig = plt.figure(figsize=[8, 8])
+        fig.subplots_adjust(right=0.85, hspace=0.5)
+        xlim = [np.max([0, self.tvec[-1] - 200]), self.tvec[-1]]
+        ax_fr = fig.add_subplot(211, title="firing rates", xlabel="time (ms)",
+                                 xlim=xlim)
 
-        ax_fr = fig.add_subplot(212, title="firing rates", xlabel="time (ms)",
-                                 xlim=[690, 750])
-
-        max_fr = np.max([np.max(np.abs(fr_)) for fr_ in firing_rates.values()])
+        max_fr = np.max([np.max(np.abs(fr_)) for fr_ in self.fr_dict.values()])
 
         for p_idx, pop in enumerate(self.presyn_pops):
-            ax_fr.plot(time_array, firing_rates[pop] / max_fr + pop, label=pop)
-        ax_fr.legend(frameon=False)
+            ax_fr.plot(self.tvec, self.fr_dict[pop] / max_fr + p_idx, label=pop)
+        ax_fr.legend(frameon=False, loc=(1.0, 0.45))
 
         ax_lfp = fig.add_subplot(212, title="LFP", xlabel="time (ms)",
-                                 ylim=[-1600, 200], xlim=[690, 750])
+                                 ylabel="depth (µm)",
+                                 ylim=[-1600, 200], xlim=xlim)
 
-        lfp_norm = np.max(np.abs(lfp))
+        lfp_norm = np.max(np.abs(self.lfp))
         for elec_idx in range(self.num_elecs):
-            ax_lfp.plot(time_array, lfp[elec_idx] / lfp_norm * self.dz +
+            ax_lfp.plot(self.tvec, self.lfp[elec_idx] / lfp_norm * self.dz +
                         self.elec_params["z"][elec_idx], c='k')
-        ax_lfp.plot([730, 730], [-100, -100 + self.dz], c='gray', lw=1.5)
-        ax_lfp.text(732, -100 + self.dz / 2, f"{lfp_norm * 1000: 1.2f} µV",
-                    color="gray")
-        fig.savefig(os.path.join(self.fig_folder, f"summary_LFP.png"))
 
-    def update_lfp(self, lfp, t_idx, firing_rate):
+        ax_lfp.plot([xlim[1], xlim[1]], [-100, -100 + self.dz], c='gray',
+                    lw=1.5, clip_on=False)
+        ax_lfp.text(xlim[1], -100 + self.dz / 2, f"{lfp_norm * 1000: 1.2f} µV",
+                    color="gray", ha='left', va='center')
+        simplify_axes(fig.axes)
+        fig.savefig(os.path.join(self.fig_folder, f"{fig_name}.png"))
+
+    def update_lfp_DEP(self, lfp, t_idx, firing_rate):
         """
         Calculate LFP resulting from our kernel, given a
         firing rate at a given time index
@@ -704,44 +719,102 @@ class PotjansDiesmannKernels:
         """ Get firing rate from buffer """
 
         for pop_ID in set(buffer[:, 0]):
-            times = buffer[buffer[:, 0] == pop_ID][:, 2]
-            assert times[-1] <= self.tvec[-1], "spiketime after simulation end"
-
             if int(pop_ID) not in fr_dict.keys():
                 fr_dict[int(pop_ID)] = np.zeros(len(self.tvec))
+            times = buffer[buffer[:, 0] == pop_ID][:, 2]
+            # assert times[-1] <= self.tvec[-1], "spiketime after simulation end"
+
+            # Ignore spiketimes that comes after the last time step.
+            # times = times[times <= self.tvec[-1]]
 
             for t_ in times:
+                if t_ > self.tvec[-1]:
+                    break
                 spiketime_idx = np.argmin(np.abs(t_ - self.tvec))
                 fr_dict[int(pop_ID)][spiketime_idx] += 1
         return fr_dict
 
+    def save_final_results(self):
+        np.save(os.path.join(self.sim_saveforlder, 'firing_rate.npy'),
+                             self.fr_dict)
+        np.save(os.path.join(self.sim_saveforlder, 'lfp.npy'),
+                             self.lfp)
+
+    def update(self, buffer):
+        """
+        Gets buffer spike data, and calculates firing rate and LFP
+
+        Parameters
+        ---------
+        buffer: ndarray of
+            buffer with spike data, with shape (num_spike_events, 3),
+            where the first column is the ID of spike recorder (used to
+            identify population name), the second column is the
+            neuron_ID (not used), and the third column is the spike time.
+        """
+        if len(buffer) == 0:
+            return
+
+        # Find smallest and largest time in buffer, so we can
+        # update the corresponding part of the LFP signal
+        t0, t1 = np.min(buffer[:, 2]), np.max(buffer[:, 2])
+        t0_idx = np.argmin(np.abs(t0 - self.tvec))
+        t1_idx = np.argmin(np.abs(t1 - self.tvec)) + 1
+
+        for pop_ID in set(buffer[:, 0]):
+            pop_name = self.pop_IDs[pop_ID]
+            spiketimes = buffer[buffer[:, 0] == pop_ID][:, 2]
+
+            for t_ in spiketimes:
+                if t_ > self.tvec[-1]:
+                    # Ignore spiketimes that comes after the last time step.
+                    break
+                spiketime_idx = np.argmin(np.abs(t_ - self.tvec))
+                self.fr_dict[pop_name][spiketime_idx] += 1
+
+            fr_ = self.fr_dict[pop_name][t0_idx:t1_idx]
+            window_idx0 = t0_idx #- int(self.kernel_length / 2)
+            window_idx1 = t1_idx + int(self.kernel_length / 2) - 1
+            sig_idx0 = 0 if window_idx0 < 0 else window_idx0
+            sig_idx1 = window_idx1 if window_idx1 < len(self.tvec) else len(self.tvec)
+
+            for elec_idx in range(self.num_elecs):
+                k_ = self.pop_kernels[pop_name][elec_idx, :]
+                lfp_ = np.convolve(k_, fr_, mode='full')[int(self.kernel_length / 2):]
+                if len(self.lfp[elec_idx, sig_idx0:sig_idx1]) == len(lfp_):
+                    self.lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
+                else:
+                    self.lfp[elec_idx, sig_idx0:sig_idx1] += lfp_[:(sig_idx1 - sig_idx0)]
+
+
+def simplify_axes(axes):
+
+    if not type(axes) is list:
+        axes = [axes]
+
+    for ax in axes:
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.get_xaxis().tick_bottom()
+        ax.get_yaxis().tick_left()
+
 
 if __name__ == '__main__':
 
-    # Get parameters from Potjans & Diesmann simulation
-    network_model_folder = "Potjans_2014"
+    # This is for debugging purposes. Original data is overwritten by
+    # dummy version.
+    sim_dict['t_sim'] = 60
+    dummy_buffer = np.zeros((3, 3))
+    dummy_buffer[:, 0] = [7719., 7719., 7722.]
+    dummy_buffer[:, 2] = [10, 20, 30]
 
+    spike_recorder_ids = np.arange(7718, 7726)
+    PD_kernels = PotjansDiesmannKernels(spike_recorder_ids)
+    PD_kernels.pop_kernels[PD_kernels.pop_IDs[7719.]] *= 0
+    PD_kernels.pop_kernels[PD_kernels.pop_IDs[7719.]][:, int(PD_kernels.kernel_length/2) + 1] = 1e-5
 
+    PD_kernels.pop_kernels[PD_kernels.pop_IDs[7722.]] *= 0
+    PD_kernels.pop_kernels[PD_kernels.pop_IDs[7722.]][:, int(PD_kernels.kernel_length/2) + 1] = 1e-5
 
-    # This is a necessary prestep, and the first time this is being run
-    # calculate_kernels must be 'True'.
-    PD_kernels = PotjansDiesmannKernels()
-
-    # Example of how this could be used, given a functioning
-    # version of self._mediator.spikes_to_rate(count, size_at_index=-2)
-    # which is here assumed to return the time point (in ms), and a dictionary
-    # of the firing rate of each population at this time point.
-
-    # if rank == 0:
-        # firing_rates = {pop: [] for pop in PD_kernels.presyn_pops}
-        # time_array = []
-        # lfp = np.zeros((PD_kernels.num_elecs, PD_kernels.kernel_length - 1))
-        #
-        # for t_idx in range(1000):
-        #     time, firing_rates_t_idx = self._mediator.spikes_to_rate(count,
-        #                                                       size_at_index=-2)
-        #     time_array.append(time)
-        #     for p_idx, pop in enumerate(PD_kernels.presyn_pops):
-        #         firing_rates[pop].append(firing_rates_t_idx[pop])
-        #      lfp_array = PD_kernels.update_lfp(t_idx, firing_rates_t_idx)
-        #PD_kernels.plot_lfp(time_array, lfp, firing_rates)
+    PD_kernels.update(dummy_buffer)
+    PD_kernels.plot_final_results('dummy_control')
