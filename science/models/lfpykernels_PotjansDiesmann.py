@@ -11,7 +11,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-# (NEURON MUST BE AFTER MPI SOMETIMES)
+# (NEURON MUST BE IMPORTED AFTER MPI SOMETIMES)
 import neuron
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
@@ -38,6 +38,16 @@ template_folder = os.path.join(use_case_folder, 'models', 'morphologies')
 
 class PotjansDiesmannKernels:
     """
+    Class to find LFP kernels from the Potians-Diesmann network model,
+    so that LFPs can be calculated directly from spikes received through
+    the EBRAINS multiscale Co-simulation framework.
+
+    Note that this class is use-case specific, and depends on the parameters
+    specified by the dictionaries under 'science.parameters.Potjans'
+
+    For more in-depth information about the kernel method, see
+        * Hagen et al. (2022) https://doi.org/10.1371/journal.pcbi.1010353
+
     Convention:
         X: Presynaptic population (e.g. L4E)
         x: Presynaptic subpopulation (e.g. p4)
@@ -47,27 +57,15 @@ class PotjansDiesmannKernels:
 
     def __init__(self, spike_recorder_ids, overwrite_kernels=False):
 
+        # The parameters of the model and simulation are given by these
+        # dictionaries:
         self.sim_dict = sim_dict
         self.net_dict = net_dict
         self.stim_dict = stim_dict
-        # self.network_model_folder = network_model_folder
+
         self.neuron_params = net_dict['neuron_params']
         self.dt = sim_dict['sim_resolution']
         self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
-
-        # Extract some useful neuron parameters:
-        self.tau_syn = self.neuron_params['tau_syn']
-        self.tau_m = self.neuron_params['tau_m']
-        self.C_m = self.neuron_params['C_m']
-        self.E_L = self.neuron_params['E_L']
-
-        # Convert postsynaptic potential into postsynaptic current
-        # function "postsynaptic_potential_to_current", Potjans2014/helpers.py
-        sub = 1. / (self.tau_syn - self.tau_m)
-        pre = self.tau_m * self.tau_syn / self.C_m * sub
-        frac = (self.tau_m / self.tau_syn) ** sub
-        self.PSC_over_PSP = 1. / (pre * (frac ** self.tau_m -
-                                         frac ** self.tau_syn)) * 1e-3  # nA
 
         self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
         os.makedirs(self.sim_saveforlder, exist_ok=True)
@@ -86,6 +84,7 @@ class PotjansDiesmannKernels:
             conn_dict = json.load(f)
         self.conn_data = conn_dict['data']
 
+        self._extract_neuron_parameters()
         self._prepare_populations(spike_recorder_ids)
         self._find_layer_specific_pathways()
         self._set_extracellular_elec_params()
@@ -93,18 +92,43 @@ class PotjansDiesmannKernels:
 
         self._calculate_all_pathway_kernels()
         # The calculation of pathway kernels must be completed on all
-        # ranks before we continue
+        # ranks before we continue:
         comm.Barrier()
         self._load_pathway_kernels()
         self._find_kernels()
 
-        self.fr_dict = {pop_name: np.zeros(len(self.tvec)) for pop_name in self.presyn_pops}
+        self.fr_dict = {pop_name: np.zeros(len(self.tvec))
+                        for pop_name in self.presyn_pops}
         self.lfp = np.zeros((self.num_elecs, len(self.tvec)))
         # self._load_firing_rates_from_file()
         # self.plot_lfps()
 
+    def _extract_neuron_parameters(self):
+        """
+        Extracts useful single-neuron parameters from the parameter
+        dictionaries
+        """
+        # Extract some useful neuron parameters:
+        self.tau_syn = self.neuron_params['tau_syn']
+        self.tau_m = self.neuron_params['tau_m']
+        self.C_m = self.neuron_params['C_m']
+        self.E_L = self.neuron_params['E_L']
+
+        # Convert postsynaptic potential into postsynaptic current
+        # function "postsynaptic_potential_to_current", Potjans2014/helpers.py
+        sub = 1. / (self.tau_syn - self.tau_m)
+        pre = self.tau_m * self.tau_syn / self.C_m * sub
+        frac = (self.tau_m / self.tau_syn) ** sub
+        self.PSC_over_PSP = 1. / (pre * (frac ** self.tau_m -
+                                         frac ** self.tau_syn)) * 1e-3  # nA
+
     def _set_kernel_params(self):
-        # Ignore first 200 ms of simulation in kernel prediction:
+        """
+        Sets the paramters of the kernel method. These can be regarded
+        as fairly static, and should not need to be changed for different
+        network configurations
+        """
+        # Ignore first X ms of simulation in kernel prediction:
         self.TRANSIENT = 200
         self.t_X = self.TRANSIENT
         self.tau = 50  # time lag relative to spike for kernel predictions
@@ -112,6 +136,10 @@ class PotjansDiesmannKernels:
         self.g_eff = False
 
     def _set_extracellular_elec_params(self):
+        """
+        Sets the parameters of the extracellular electrode, indicating
+        where the LFP is calculated
+        """
         self.num_elecs = 16
         # class RecExtElectrode parameters:
         self.elec_params = dict(
@@ -129,17 +157,16 @@ class PotjansDiesmannKernels:
         """
         Set up the modelled neural populations, and declare
         their respective morphologies etc.
+        For more information on the chosen morphologies and layer boundaries,
+        see Hagen et al. (2016) https://doi.org/10.1093/cercor/bhw237
         """
         pop_names = self.net_dict['populations']
 
         self.presyn_pops = pop_names + ['TC']
         self.postsyn_pops = pop_names
-        # try:
+
         self.pop_IDs = {spike_recorder_id: pop_name
-                            for spike_recorder_id, pop_name in zip(spike_recorder_ids, self.presyn_pops)}
-        # except:
-        #     self.pop_IDs = {spike_recorder_id: pop_name
-        #                     for spike_recorder_id, pop_name in zip(spike_recorder_ids, pop_names)}
+                        for spike_recorder_id, pop_name in zip(spike_recorder_ids, self.presyn_pops)}
 
         self.pop_clrs = {pop_name: plt.cm.rainbow(i / (len(self.presyn_pops) - 1))
                          for i, pop_name in enumerate(self.presyn_pops)}
@@ -242,13 +269,13 @@ class PotjansDiesmannKernels:
         """
         We need to find the normalized layer-specific input for each
         connection pathway (e.g. L4E -> L5E).
-        Each population has sub-populations making up given
+        Each population has subpopulations making up given
         fractions of the population.
         Many sup-populations given in the connection
-        dictionary are not used.
+        dictionary ('binzegger_connectivity_table.json') are not used.
         For each layer of each post-synaptic subpopulation,
         the data is normalized, but this includes
-        input from many unused sub-populations.
+        input from many unused subpopulations.
         We need to take into account the relative abundance of
         each post-synaptic subpopulation.
         """
@@ -324,7 +351,7 @@ class PotjansDiesmannKernels:
 
         if self.plot_conn_data and rank == 0:
             # Plot layer-specific connectivity data, similar
-            # to Fig. 5D in Hagen et al. (2016)
+            # to Fig. 5D in Hagen et al. (2016) https://doi.org/10.1093/cercor/bhw237
             fig = plt.figure(figsize=[10, 10])
             fig.subplots_adjust(wspace=0.3, hspace=0.2, bottom=0.05,
                                 top=0.95, right=0.98, left=0.05)
@@ -356,24 +383,28 @@ class PotjansDiesmannKernels:
                                      "layer_specific_conn_data.png"))
 
     def _calculate_one_pathway_kernel(self, postsyn_pop, presyn_pop):
+        """
+        Calculate the LFP kernel for one specific connection pathway from the
+        presynaptic population to the postsynaptic population
+        """
 
         postsyn_pop_idx = np.where([p_ == postsyn_pop
-                                  for p_ in self.postsyn_pops])[0][0]
+                                    for p_ in self.postsyn_pops])[0][0]
         presyn_pop_idx = np.where([p_ == presyn_pop
-                                  for p_ in self.presyn_pops])[0][0]
+                                   for p_ in self.presyn_pops])[0][0]
 
         postsyn_l_idx = np.where([l_ == postsyn_pop[1:-1]
                                   for l_ in self.layers])[0][0]
         pathway_name = f'{postsyn_pop}:{presyn_pop}'
         filename = os.path.join(self.sim_saveforlder,
-                             f'kernel_{pathway_name}.npy')
+                                f'kernel_{pathway_name}.npy')
 
         if np.abs(self.conn_probs[postsyn_pop_idx, presyn_pop_idx]) < 1e-9:
             # No pathway from presyn_pop to postsyn_pop
-            #self.H[pathway_name] = None
             return
 
         if os.path.isfile(filename) and not self.overwrite_kernels:
+            # Kernel already exists, and we do not overwrite it
             return
 
         layered_input = self.syn_pathways[pathway_name]
@@ -389,6 +420,7 @@ class PotjansDiesmannKernels:
             #      f"{self.conn_probs[postsyn_pop_idx, presyn_pop_idx]}")
             layered_input[postsyn_l_idx] = 1.0
 
+        # Parameters for a chosen representative post-synaptic cell model:
         cell_params = dict(
             morphology=os.path.join(morphology_folder,
                                     self.morph_map[postsyn_pop]),
@@ -407,17 +439,28 @@ class PotjansDiesmannKernels:
             templateargs=None,
         )
 
+        # Parameters for the postsynaptic population.
+        # For mathematical convenience, the spatial spread of the
+        # somas and synapses in the depth direction (z-axis) are treated
+        # as gaussians, with a standard deviation
+        # of layer_thickness/spatial_spread_dz. The spatial_spread_dz parameter
+        # is important in deciding the resulting LFP amplitude, with a larger
+        # value giving higher LFP amplitudes.
+        self.spatial_spread_dz = 4
+        population_area = 1000**2  # Potians Diesmann model has area of 1000 µm^2
         population_params = dict(
-            radius=np.sqrt(1000 ** 2 / np.pi),  # population radius
+            radius=np.sqrt(population_area / np.pi),  # population radius
             loc=self.layer_mids[postsyn_l_idx],  # population center along z-axis
-            scale=self.layer_thicknesses[postsyn_l_idx] / 4)  # SD along z-axis
+            scale=self.layer_thicknesses[postsyn_l_idx] / self.spatial_spread_dz)  # SD along z-axis
 
+        # See the documentation of LFPykernels for a better description of
+        # these paramters:
         rotation_args = {'x': 0.0, 'y': 0.0}
         sections = "allsec" if "I" in presyn_pop else ["dend", "apic"]
         syn_pos_params = [dict(section=sections,
                                fun=[st.norm] * len(self.layers),
                                funargs=[dict(loc=self.layer_mids[l_idx],
-                                             scale=self.layer_thicknesses[l_idx] / 4)
+                                             scale=self.layer_thicknesses[l_idx] / self.spatial_spread_dz)
                                         for l_idx in range(len(self.layers))],
                                funweights=layered_input
                                )]
@@ -456,7 +499,7 @@ class PotjansDiesmannKernels:
 
         syn_params = [dict(weight=weight, syntype='ExpSynI', tau=self.tau_syn)]
 
-        # Create KernelApprox object
+        # Create KernelApprox object, see LFPykernels for documentation
         kernel = KernelApprox(
             X=[presyn_pop],
             Y=postsyn_pop,
@@ -479,15 +522,14 @@ class PotjansDiesmannKernels:
             conductance_based=False,
         )
 
-        # make kernel predictions and update container dictionary
+        # Make kernel predictions and update container dictionary
         H_XY = kernel.get_kernel(probes=[gauss_cyl_potential],
                                  Vrest=self.E_L, dt=self.dt, X=presyn_pop,
                                  t_X=self.t_X, tau=self.tau,
                                  g_eff=self.g_eff, fir=False)
-
         k_ = H_XY['GaussCylinderPotential']
 
-        # Save kernel to file
+        # Save kernel to file for later use
         np.save(filename, k_)
 
         if self.plot_kernels:
@@ -561,7 +603,11 @@ class PotjansDiesmannKernels:
                                      f"{postsyn_pop}_{presyn_pop}.png"))
 
     def _calculate_all_pathway_kernels(self):
-
+        """
+        Calculate all pathway kernels using MPI. If a kernel already
+        exist on disc, they are not recalculated unless
+        self.overwrite_kernels is True.
+        """
         task_idx = 0
         # Loop through all synaptic pathways in the model and calculate kernels:
         for postsyn_pop_idx, postsyn_pop in enumerate(self.postsyn_pops):
@@ -572,6 +618,9 @@ class PotjansDiesmannKernels:
                 task_idx += 1
 
     def _load_pathway_kernels(self):
+        """
+        Loads the LFP kernels from each connection pathway from file
+        """
         self.H = {}
         for postsyn_pop_idx, postsyn_pop in enumerate(self.postsyn_pops):
             for presyn_pop_idx, presyn_pop in enumerate(self.presyn_pops):
@@ -582,9 +631,12 @@ class PotjansDiesmannKernels:
                     self.H[pathway_name] = np.load(f_name)
 
     def _find_kernels(self):
+        """
+        Summing the LFP kernels of each presynaptic populations, so that the
+        LFP can be found by convolving the presynaptic firing rates with
+        the corresponding summed LFP kernel.
+        """
 
-        # Summing the kernels of each presynaptic populations, so LFP can be found
-        # by convolving pre-synaptic firing rate with this summed kernel
         self.pop_kernels = {}
         for pop_idx, pop_name in enumerate(self.presyn_pops):
             self.pop_kernels[pop_name] = np.zeros((self.num_elecs,
@@ -595,7 +647,14 @@ class PotjansDiesmannKernels:
                         self.pop_kernels[pop_name] += self.H[pathway_name]
 
     def _load_firing_rates_from_file(self):
-        self.firing_rate_path = os.path.join(self.network_model_folder, 'data')
+        """
+        Load saved firing rates from file.
+        NOTE: This is only ment for internal testing, and not for use with
+        the Co-simulation framework, where spikes are received in realtime
+        and not loaded from simulation after the simulation has finished.
+        """
+        self.firing_rate_path = os.path.join(use_case_folder, 'models',
+                                             'Potjans', 'data')
         self.pop_gids = {}
 
         sim_start = self.sim_dict['t_presim']
@@ -633,7 +692,12 @@ class PotjansDiesmannKernels:
                 return pop_name
 
     def _load_and_return_spikes(self):
-
+        """
+        Load saved spikes from file.
+        NOTE: This is only ment for internal testing, and not for use with
+        the Co-simulation framework, where spikes are received in realtime
+        and not loaded from simulation after the simulation has finished.
+        """
         firing_rates = {}
         pop_spike_times = {pop_name: [] for pop_name in self.presyn_pops}
         fr_files = [f for f in os.listdir(self.firing_rate_path)
@@ -657,7 +721,10 @@ class PotjansDiesmannKernels:
         return pop_spike_times, firing_rates
 
     def plot_final_results(self, fig_name='summary_LFP'):
-
+        """
+        Plot final results after simulation end, with both the firing rate
+        of each individual population and the resulting LFP.
+        """
         plt.close('all')
         fig = plt.figure(figsize=[8, 8])
         fig.subplots_adjust(right=0.85, hspace=0.5)
@@ -687,54 +754,59 @@ class PotjansDiesmannKernels:
         simplify_axes(fig.axes)
         fig.savefig(os.path.join(self.fig_folder, f"{fig_name}.png"))
 
-    def update_lfp_DEP(self, lfp, t_idx, firing_rate):
-        """
-        Calculate LFP resulting from our kernel, given a
-        firing rate at a given time index
-        """
-        # For every new timestep the predicted LFP signal is made
-        # one timestep longer
+    # def update_lfp_DEPRECATED(self, lfp, t_idx, firing_rate):
+    #     """
+    #     Calculate LFP resulting from LFP kernel, given a
+    #     firing rate at a given time index.
+    #
+    #     This method is DEPRECATED, and only exist for reference.
+    #     """
+    #     # For every new timestep the predicted LFP signal is made
+    #     # one timestep longer
+    #
+    #     # self.lfp.append([0] * self.num_elecs)
+    #     if lfp is None:
+    #         lfp = np.zeros((self.num_elecs, self.kernel_length - 1))
+    #
+    #     lfp = np.append(lfp, np.zeros((self.num_elecs, 1)), axis=1)
+    #     # Find the time indexes where the LFP is calculated:
+    #     window_idx0 = t_idx - int(self.kernel_length / 2)
+    #     window_idx1 = t_idx + int(self.kernel_length / 2)
+    #     sig_idx0 = 0 if window_idx0 < 0 else window_idx0
+    #     sig_idx1 = window_idx1
+    #     k_idx0 = -window_idx0 if window_idx0 < 0 else 0
+    #
+    #     # This is essentially a manual convolution, one timestep at the time,
+    #     # between the firingrate and the kernel
+    #     for p_idx, pop in enumerate(self.presyn_pops):
+    #         for elec_idx in range(self.num_elecs):
+    #             lfp_ = firing_rate[pop] * self.pop_kernels[pop][elec_idx][k_idx0:]
+    #             lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
+    #     return lfp
 
-        # self.lfp.append([0] * self.num_elecs)
-        if lfp is None:
-            lfp = np.zeros((self.num_elecs, self.kernel_length - 1))
-
-        lfp = np.append(lfp, np.zeros((self.num_elecs, 1)), axis=1)
-        # Find the time indexes where the LFP is calculated:
-        window_idx0 = t_idx - int(self.kernel_length / 2)
-        window_idx1 = t_idx + int(self.kernel_length / 2)
-        sig_idx0 = 0 if window_idx0 < 0 else window_idx0
-        sig_idx1 = window_idx1
-        k_idx0 = -window_idx0 if window_idx0 < 0 else 0
-
-        # This is essentially a manual convolution, one timestep at the time,
-        # between the firingrate and the kernel
-        for p_idx, pop in enumerate(self.presyn_pops):
-            for elec_idx in range(self.num_elecs):
-                lfp_ = firing_rate[pop] * self.pop_kernels[pop][elec_idx][k_idx0:]
-                lfp[elec_idx, sig_idx0:sig_idx1] += lfp_
-        return lfp
-
-    def get_firingrate_from_buffer(self, buffer, fr_dict):
-        """ Get firing rate from buffer """
-
-        for pop_ID in set(buffer[:, 0]):
-            if int(pop_ID) not in fr_dict.keys():
-                fr_dict[int(pop_ID)] = np.zeros(len(self.tvec))
-            times = buffer[buffer[:, 0] == pop_ID][:, 2]
-            # assert times[-1] <= self.tvec[-1], "spiketime after simulation end"
-
-            # Ignore spiketimes that comes after the last time step.
-            # times = times[times <= self.tvec[-1]]
-
-            for t_ in times:
-                if t_ > self.tvec[-1]:
-                    break
-                spiketime_idx = np.argmin(np.abs(t_ - self.tvec))
-                fr_dict[int(pop_ID)][spiketime_idx] += 1
-        return fr_dict
+    # def get_firingrate_from_buffer(self, buffer, fr_dict):
+    #     """ Get firing rate from buffer.  """
+    #
+    #     for pop_ID in set(buffer[:, 0]):
+    #         if int(pop_ID) not in fr_dict.keys():
+    #             fr_dict[int(pop_ID)] = np.zeros(len(self.tvec))
+    #         times = buffer[buffer[:, 0] == pop_ID][:, 2]
+    #         # assert times[-1] <= self.tvec[-1], "spiketime after simulation end"
+    #
+    #         # Ignore spiketimes that comes after the last time step.
+    #         # times = times[times <= self.tvec[-1]]
+    #
+    #         for t_ in times:
+    #             if t_ > self.tvec[-1]:
+    #                 break
+    #             spiketime_idx = np.argmin(np.abs(t_ - self.tvec))
+    #             fr_dict[int(pop_ID)][spiketime_idx] += 1
+    #     return fr_dict
 
     def save_final_results(self):
+        """
+        Save firing rate and LFP to file after simulation end.
+        """
         np.save(os.path.join(self.sim_saveforlder, 'firing_rate.npy'),
                              self.fr_dict)
         np.save(os.path.join(self.sim_saveforlder, 'lfp.npy'),
@@ -742,7 +814,8 @@ class PotjansDiesmannKernels:
 
     def update(self, buffer):
         """
-        Gets buffer spike data, and calculates firing rate and LFP
+        Gets buffer spike data from the co-simulation framework,
+        and calculates the resulting firing rate and LFP.
 
         Parameters
         ---------
@@ -788,6 +861,10 @@ class PotjansDiesmannKernels:
 
 
 def simplify_axes(axes):
+    """
+    Plotting helper function to make nicer plots. It hides top and right axes
+    of axes.
+    """
 
     if not type(axes) is list:
         axes = [axes]
