@@ -1,8 +1,0 @@
-./expsyni.c: ../expsyni.mod
-	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
-	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "expsyni.mod" -o "/home/vagrant/multiscale-cosim/my_forks/Cosim-LFPy/science/mod/x86_64")
-
-./expsyni.o: ./expsyni.c
-	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
-	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
-
