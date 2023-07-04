@@ -43,10 +43,13 @@ from science.parameters.Potjans.sim_params import sim_dict
 use_case_folder = science.__path__[0]
 mod_folder = os.path.join(use_case_folder, 'mod')
 mech_loaded = neuron.load_mechanisms(mod_folder)
-if not mech_loaded:
+
+if rank==0 and not mech_loaded:
     os.system(f'cd {mod_folder} && nrnivmodl && cd -')
     mech_loaded = neuron.load_mechanisms(mod_folder)
     os.system(f'cd -')
+
+comm.Barrier()
 assert mech_loaded
 
 binzegger_file = os.path.join(use_case_folder, 'parameters',

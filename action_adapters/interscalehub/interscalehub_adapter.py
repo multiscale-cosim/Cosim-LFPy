@@ -136,10 +136,11 @@ class InterscaleHubAdapter:
 
         self.__logger.debug("INIT command is executed")
 
-    def execute_start_command(self, id_first_spike_detector):
+    def execute_start_command(self, spike_detectors_ids):
         """executes START steering command"""
         self.__logger.debug("executing START command")
-        self.__hub.start()
+
+        self.__hub.start(spike_detectors_ids)
 
         self.__logger.debug("START command is executed")
 
@@ -211,12 +212,12 @@ if __name__ == '__main__':
         # 2. execute if steering command is 'START'
         if current_steering_command == SteeringCommands.START:
             # fetch id_first_spike_detector
-            id_first_spike_detector = control_command.get(COMMANDS.PARAMETERS.name)[1]
+            spike_detectors_ids = control_command.get(COMMANDS.PARAMETERS.name)[1]
             # print(f'current_steering_command: {current_steering_command} '
             #       f'id_first_spike_detector: {id_first_spike_detector[0]}')
             # execute the START command
             # receive, pivot, transform, send
-            interscalehub_adapter.execute_start_command(id_first_spike_detector)
+            interscalehub_adapter.execute_start_command(spike_detectors_ids)
             
             # execute the END command
             interscalehub_adapter.execute_end_command()
