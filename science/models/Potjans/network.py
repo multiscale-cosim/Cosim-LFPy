@@ -347,6 +347,8 @@ class Network:
 
         Only devices which are given in ``sim_dict['rec_dev']`` are created.
 
+        Modification from original: Add one more spike_recorder to record thalamic spikes if
+        there is thalamic input
         """
         if nest.Rank() == 0:
             print('Creating recording devices.')
@@ -359,8 +361,12 @@ class Network:
             # Changed to make MPI connection with Cosim InterscaleHub
             sd_dict = {"record_to": "mpi",
                        'label': interscalehub_NEST_TO_LFPy_address}
+            if self.stim_dict['thalamic_input']:
+                num_recorders = self.num_pops + 1
+            else:
+                num_recorders = self.num_pops
             self.spike_recorders = nest.Create('spike_recorder',
-                                               n=self.num_pops,
+                                               n=num_recorders,
                                                params=sd_dict)
 
         if 'voltmeter' in self.sim_dict['rec_dev']:
@@ -399,6 +405,8 @@ class Network:
         Note that the number of thalamic neurons is not scaled with
         ``N_scaling``.
 
+        Modification from original: Also write to file GIDs of thalamic neurons
+        TODO: NOT SURE IF THIS IS NECESSARY, IF RATES ARE ALREADY CALCULATED!
         """
         if nest.Rank() == 0:
             print('Creating thalamic input for external stimulation.')
@@ -411,6 +419,14 @@ class Network:
             rate=self.stim_dict['th_rate'],
             start=self.stim_dict['th_start'],
             stop=(self.stim_dict['th_start'] + self.stim_dict['th_duration']))
+
+        # write thalamic node ids to file
+        if nest.Rank() == 0:
+            fn = os.path.join(self.data_path, 'population_nodeids.dat')
+            with open(fn, 'a') as f:
+                f.write('{} {}\n'.format(self.thalamic_population[0].global_id,
+                                         self.thalamic_population[-1].global_id))
+
 
     def __create_dc_stim_input(self):
         """ Creates DC generators for external stimulation if specified
@@ -470,7 +486,10 @@ class Network:
                         syn_spec=syn_dict)
 
     def __connect_recording_devices(self):
-        """ Connects the recording devices to the microcircuit."""
+        """ Connects the recording devices to the microcircuit.
+
+        Modification from original: Also connect spike_recorder to thalamic population
+        """
         if nest.Rank == 0:
             print('Connecting recording devices.')
 
@@ -479,6 +498,9 @@ class Network:
                 nest.Connect(target_pop, self.spike_recorders[i])
             if 'voltmeter' in self.sim_dict['rec_dev']:
                 nest.Connect(self.voltmeters[i], target_pop)
+
+        if self.stim_dict['thalamic_input'] and 'spike_recorder' in self.sim_dict['rec_dev']:
+            nest.Connect(self.thalamic_population, self.spike_recorders[-1])
 
     def __connect_poisson_bg_input(self):
         """ Connects the Poisson generators to the microcircuit."""
