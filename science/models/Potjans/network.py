@@ -93,6 +93,9 @@ class Network:
             self.__create_thalamic_stim_input()
         if self.stim_dict['dc_input']:
             self.__create_dc_stim_input()
+        
+        # return spike recorders
+        return self.spike_recorders
 
     def connect(self):
         """ Connects the network.

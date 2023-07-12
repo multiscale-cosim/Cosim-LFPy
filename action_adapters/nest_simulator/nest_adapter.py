@@ -76,6 +76,7 @@ class NestAdapter:
         self.__interscalehub_NEST_TO_LFPy_address = None
         self.__init_port_names(p_interscalehub_addresses)
         self.__simulator = None
+        self.__spike_detectors = None
         self.__is_monitoring_enabled = is_monitoring_enabled
         if self.__is_monitoring_enabled:
             self.__resource_usage_monitor = ResourceMonitorAdapter(self._configurations_manager,
@@ -128,15 +129,18 @@ class NestAdapter:
         # setup connections with InterscaleHub
         self.__log_message("preparing the simulator, and "
                            "establishing the connections")
-        self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
+        self.__spike_detectors = self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
+        self.__logger.debug(f"spike_detectors: {self.__spike_detectors}")
+
         self.__logger.debug(f"connecting simulator")
         self.__simulator.connect()
         self.__log_message("connections are made")
         self.__logger.debug("INIT command is executed")
+        
         # 2. return local minimum step size
         # TODO determine the local minimum step size
         local_minimum_step_size = 1.5  # NOTE hardcoded, will change later
-        return local_minimum_step_size
+        return local_minimum_step_size, self.__spike_detectors.tolist()
 
     def execute_start_command(self, global_minimum_step_size):
         self.__logger.debug("executing START command")
@@ -157,7 +161,6 @@ class NestAdapter:
         # self.__simulator.simulate(sim_dict['t_presim'])
         # self.__simulator.simulate(sim_dict['t_sim'])
 
-        
         self.__logger.info('NEST simulation is finished')
         self.__logger.info("cleaning up NEST")
         self.__simulator.cleanup()
@@ -216,7 +219,7 @@ if __name__ == "__main__":
             sci_params_xml_path_filename=p_sci_params_xml_path_filename)
 
         # 4. execute 'INIT' command which is implicit with when laucnhed
-        local_minimum_step_size = nest_adapter.execute_init_command()
+        local_minimum_step_size, list_spike_detectors = nest_adapter.execute_init_command()
 
         # 5. send the pid and the local minimum step size to Application Manager
         # as a response to 'INIT' as per protocol
@@ -228,9 +231,12 @@ if __name__ == "__main__":
         my_rank = nest_adapter.rank
         if my_rank == 0:
             pid_and_local_minimum_step_size = \
-                {SIMULATOR.PID.name: os.getpid(),
-                SIMULATOR.LOCAL_MINIMUM_STEP_SIZE.name: local_minimum_step_size}
-            
+                {SIMULATOR.PID.name: nest_adapter.pid,
+                #SIMULATOR.PID.name: os.getpid(),
+                SIMULATOR.LOCAL_MINIMUM_STEP_SIZE.name: local_minimum_step_size,
+                SIMULATOR.SPIKE_DETECTORS.name: list_spike_detectors,
+                }
+        
             # send the response
             # NOTE Application Manager will read the stdout stream via PIPE
             print(f'{pid_and_local_minimum_step_size}')
