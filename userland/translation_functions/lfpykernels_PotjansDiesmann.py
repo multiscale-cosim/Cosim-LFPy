@@ -35,12 +35,14 @@ size = comm.Get_size()
 import neuron
 from lfpykernels import KernelApprox, GaussCylinderPotential
 
-import science
-from science.parameters.Potjans.stimulus_params import stim_dict
-from science.parameters.Potjans.network_params import net_dict
-from science.parameters.Potjans.sim_params import sim_dict
+import userland
+from userland.parameters.Potjans.stimulus_params import stim_dict
+from userland.parameters.Potjans.network_params import net_dict
+from userland.parameters.Potjans.sim_params import sim_dict
 
-use_case_folder = science.__path__[0]
+# TODO refactor paths for saving the simulation results and plots
+
+use_case_folder = userland.__path__[0]
 mod_folder = os.path.join(use_case_folder, 'mod')
 mech_loaded = neuron.load_mechanisms(mod_folder)
 
@@ -66,7 +68,7 @@ class PotjansDiesmannKernels:
     the EBRAINS multiscale Co-simulation framework.
 
     Note that this class is use-case specific, and depends on the parameters
-    specified by the dictionaries under 'science.parameters.Potjans'
+    specified by the dictionaries under 'userland.parameters.Potjans'
 
     For more in-depth information about the kernel method, see
         * Hagen et al. (2022) https://doi.org/10.1371/journal.pcbi.1010353
