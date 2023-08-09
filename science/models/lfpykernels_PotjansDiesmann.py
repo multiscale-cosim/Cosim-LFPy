@@ -751,7 +751,7 @@ class PotjansDiesmannKernels:
         plt.close('all')
         fig = plt.figure(figsize=[8, 8])
         fig.subplots_adjust(right=0.85, hspace=0.5)
-        xlim = [np.max([0, self.tvec[-1] - 200]), self.tvec[-1]]
+        xlim = [np.max([0, self.tvec[-1] - 400]), self.tvec[-1]]
         ax_fr = fig.add_subplot(211, title="firing rates", xlabel="time (ms)",
                                  xlim=xlim)
 
@@ -882,6 +882,47 @@ class PotjansDiesmannKernels:
                 else:
                     self.lfp[elec_idx, sig_idx0:sig_idx1] += lfp_[:(sig_idx1 - sig_idx0)]
 
+    def sanity_test_convolution(self):
+        lfp_postcalc = np.zeros((self.num_elecs, len(self.tvec)))
+        for pop_idx, pop_name in enumerate(self.presyn_pops):
+            fr_ = self.fr_dict[pop_name]
+            for elec_idx in range(self.num_elecs):
+                k_ = self.pop_kernels[pop_name][elec_idx, :]
+                lfp_ = np.convolve(k_, fr_, mode='full')[int(self.kernel_length / 2):]
+                lfp_postcalc[elec_idx, :] += lfp_[:len(lfp_postcalc[elec_idx, :])]
+        print(np.max(np.abs(self.lfp - lfp_postcalc)))
+
+        plt.close('all')
+        fig = plt.figure(figsize=[8, 8])
+        fig.subplots_adjust(right=0.85, hspace=0.5)
+        xlim = [0, 1000]
+        ax_fr = fig.add_subplot(211, title="firing rates", xlabel="time (ms)",
+                                 xlim=xlim)
+
+        max_fr = np.max([np.max(np.abs(fr_)) for fr_ in self.fr_dict.values()])
+
+        for p_idx, pop in enumerate(self.presyn_pops):
+            ax_fr.plot(self.tvec, self.fr_dict[pop] / max_fr + p_idx, label=pop)
+        ax_fr.legend(frameon=False, loc=(1.0, 0.45))
+
+        ax_lfp = fig.add_subplot(212, title="LFP", xlabel="time (ms)",
+                                 ylabel="depth (µm)",
+                                 ylim=[-1600, 200], xlim=xlim)
+
+        lfp_norm = np.max(np.abs(self.lfp))
+        for elec_idx in range(self.num_elecs):
+            ax_lfp.plot(self.tvec, self.lfp[elec_idx] / lfp_norm * self.dz +
+                        self.elec_params["z"][elec_idx], c='k')
+            ax_lfp.plot(self.tvec, lfp_postcalc[elec_idx] / lfp_norm * self.dz +
+                        self.elec_params["z"][elec_idx], c='r')
+
+        ax_lfp.plot([xlim[1], xlim[1]], [-100, -100 + self.dz], c='gray',
+                    lw=1.5, clip_on=False)
+        ax_lfp.text(xlim[1], -100 + self.dz / 2, f"{lfp_norm * 1000: 1.2f} µV",
+                    color="gray", ha='left', va='center')
+        simplify_axes(fig.axes)
+        fig.savefig(os.path.join(self.fig_folder, f"sanity_test.png"))
+
 
 def simplify_axes(axes):
     """
@@ -903,7 +944,7 @@ if __name__ == '__main__':
 
     # This is for debugging purposes. Original data is overwritten by
     # dummy version.
-    sim_dict['t_sim'] = 60
+    sim_dict['t_sim'] = 1000
     dummy_buffer = np.zeros((3, 3))
     dummy_buffer[:, 0] = [7719., 7719., 7722.]
     dummy_buffer[:, 2] = [10, 20, 30]
@@ -918,3 +959,4 @@ if __name__ == '__main__':
 
     PD_kernels.update(dummy_buffer)
     PD_kernels.plot_final_results('dummy_control')
+    PD_kernels.sanity_test_convolution()
