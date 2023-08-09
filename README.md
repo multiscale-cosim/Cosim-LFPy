@@ -22,8 +22,6 @@
   <img alt="Github stars" src="https://img.shields.io/github/stars/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
 </p>
 
-## Status
-
 <h4 align="center"> 
 	Multi-scale Co-simulation - NEST-LFPy
 </h4> 
