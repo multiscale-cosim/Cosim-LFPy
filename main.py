@@ -15,7 +15,7 @@
 import sys
 
 from EBRAINS_ConfigManager.workflow_configurations_manager.xml_parsers import enums
-from ms_manager import MSManager
+from EBRAINS_Launcher.common.ms_manager import MSManager
 
 
 def main():

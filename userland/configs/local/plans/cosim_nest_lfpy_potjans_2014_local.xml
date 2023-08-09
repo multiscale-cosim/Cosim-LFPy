@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<settings>
+    <co_simulation_action_plan>
+        <title>NEST LFPy Cosimulation on local systems</title>
+        <description>NEST LFPy Cosimulation on local systems</description>
+        <variables>
+            <!--    
+                The values for the variables under this section, 
+                will be set on run-time when is required (e.g. ${CO_SIM_ENV_VAR} or ${HOME})
+                and held on a python dictionary
+                    
+                NOTE: the NAME of the variable is the dictionary KEY to have access to its value
+            -->
+            <var_000>
+                <var_name>CO_SIM_ROOT_PATH</var_name>
+                <var_value>${CO_SIM_ROOT_PATH}</var_value>
+            </var_000>
+            <var_001>
+                <var_name>CO_SIM_MODULES_ROOT_PATH</var_name>
+                <var_value>${CO_SIM_MODULES_ROOT_PATH}</var_value>
+            </var_001>
+            <var_002>
+                <var_name>CO_SIM_USE_CASE_ROOT_PATH</var_name>
+                <var_value>${CO_SIM_USE_CASE_ROOT_PATH}</var_value>
+            </var_002>
+            <var_003>
+                <var_name>CO_SIM_ACTIONS_PATH</var_name>
+                <!-- The Co-Simulator will get the ${CO_SIM_TVB_NEST_PATH} value on run-time -->
+		<var_value>{CO_SIM_USE_CASE_ROOT_PATH}/userland/configs/local/actions</var_value>
+            </var_003>
+            <var_004>
+                <var_name>CO_SIM_ROUTINES_PATH</var_name>
+                <var_value>{CO_SIM_USE_CASE_ROOT_PATH}/action_adapters</var_value>
+            </var_004>
+            <var_006>
+                <var_name>CO_SIM_EXECUTION_ENVIRONMENT</var_name>
+                <var_value>Local</var_value>
+            </var_006>
+            <var_007>
+                <var_name>CO_SIM_PARAMETERS_PATH</var_name>
+                <var_value>{CO_SIM_USE_CASE_ROOT_PATH}/userland/parameters</var_value>
+            </var_007>
+            <var_008>
+                <!-- where the co_sim_comm_ports.xml configuration file is located -->
+                <var_name>CO_SIM_COMMUNICATION_SETTINGS_PATH</var_name>
+		<var_value>{CO_SIM_MODULES_ROOT_PATH}/EBRAINS_WorkflowConfigurations/general</var_value>
+            </var_008>
+        </variables>
+        <parameters>
+            <!-- functional parameters specific to this (current) action plan -->
+            <!-- these CO_SIM_* parameters are created as a dictionary -->
+            <par_000>
+                <par_name>CO_SIM_LOGS_PATH</par_name>
+                <par_value>/logs</par_value>
+            </par_000>
+            <par_001>
+                <par_name>CO_SIM_MONITORING_DATA_PATH</par_name>
+                <par_value>/monitoring_data</par_value>
+            </par_001>
+            <par_002>
+                <par_name>CO_SIM_RESULTS_OUTPUT_PATH</par_name>
+                <par_value>/simulation_results</par_value>
+            </par_002>
+            <par_003>
+                <par_name>CO_SIM_COMMUNICATION_SETTINGS_XML</par_name>
+                <par_value>{CO_SIM_COMMUNICATION_SETTINGS_PATH}/co_sim_comm_ports.xml</par_value>
+            </par_003>
+             <par_004>
+                <!--
+                    NOTE: this parameter is required to enable/disable the
+                    resource usage monitoring.
+                -->
+                <par_name>CO_SIM_ENABLE_MONITORING</par_name>
+                <par_value>False</par_value>
+            </par_004>
+            <par_005>
+                <!--
+                    NOTE: this parameter is required to enable/disable the
+                    RESTful Service
+                -->
+                <par_name>CO_SIM_ENABLE_REST_APP_SERVER</par_name>
+                <par_value>False</par_value>
+            </par_005>
+        </parameters>
+        <arrangement>
+            <!-- 
+                NOTE: arranger will first check if the output directories are
+                already created, and will only create if they do not exist
+            -->
+            <arr_001>
+                <arr_duty>CO_SIM_ARRANGEMENT_CHECK_BEFORE_CREATION</arr_duty>
+                <arr_what>{CO_SIM_RESULTS_PATH}{CO_SIM_LOGS_PATH}</arr_what>
+            </arr_001>
+            <arr_002>
+                <arr_duty>CO_SIM_ARRANGEMENT_CHECK_BEFORE_CREATION</arr_duty>
+                <arr_what>{CO_SIM_RESULTS_PATH}{CO_SIM_MONITORING_DATA_PATH}</arr_what>
+            </arr_002>
+            <arr_003>
+                <arr_duty>CO_SIM_ARRANGEMENT_CHECK_BEFORE_CREATION</arr_duty>
+                <arr_what>{CO_SIM_RESULTS_PATH}{CO_SIM_RESULTS_OUTPUT_PATH}</arr_what>
+            </arr_003>
+        </arrangement>
+        <action_plan>
+            <!--
+                NOTE: action_NNN will be sorted, meaning that NNN must be a correlative number
+                 representing the point where/when the action will be launched
+            -->
+
+            <!-- initialization stage -->
+            <!-- <action_000>
+                <action_type>CO_SIM_ACTION</action_type>
+                <action_xml>initial_spikes_generator.xml</action_xml>
+                <action_launch_method>CO_SIM_SEQUENTIAL_ACTION</action_launch_method>
+            </action_000> -->
+
+            <!-- <action_002> -->
+                <!-- waiting until the preceding action finishes -->
+                <!-- <action_type>CO_SIM_EVENT</action_type> -->
+                <!-- <action_event>CO_SIM_WAIT_FOR_SEQUENTIAL_ACTIONS</action_event> -->
+            <!-- </action_002> -->
+
+            <!-- main plan action proceeding -->
+            <action_004>
+                <action_type>CO_SIM_ACTION</action_type>
+                <action_goal>CO_SIM_ONE_WAY_SIMULATION</action_goal>
+                <action_realm>NEST</action_realm>
+                <action_label>NEST_SIMULATOR</action_label>
+                <action_xml>cosim_nest_potjans_2014.xml</action_xml>
+                <action_launch_method>CO_SIM_CONCURRENT_ACTION</action_launch_method>
+            </action_004>
+            <action_006>
+                <action_type>CO_SIM_ACTION</action_type>
+                <action_goal>CO_SIM_ONE_WAY_INTERSCALE_HUB</action_goal>
+                <action_label>INTERSCALEHUB_NEST_LFPY</action_label>
+                <action_xml>cosim_interscalehub_potjans_2014_nest_to_lfpy.xml</action_xml>
+                <action_launch_method>CO_SIM_CONCURRENT_ACTION</action_launch_method>
+            </action_006>
+            <!-- epilogue -->
+            <action_012>
+                <!-- waiting until the preceding actions finishes -->
+                <action_type>CO_SIM_EVENT</action_type>
+                <action_event>CO_SIM_WAIT_FOR_CONCURRENT_ACTIONS</action_event>
+            </action_012>
+        </action_plan>
+    </co_simulation_action_plan>
+</settings>

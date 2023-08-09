@@ -21,13 +21,13 @@ import ast
 
 from mpi4py import MPI
 
-from science.models.Potjans import network
-from science.parameters.Potjans.stimulus_params import stim_dict
-from science.parameters.Potjans.network_params import net_dict
-from science.parameters.Potjans.sim_params import sim_dict
+from userland.models.Potjans import network
+from userland.parameters.Potjans.stimulus_params import stim_dict
+from userland.parameters.Potjans.network_params import net_dict
+from userland.parameters.Potjans.sim_params import sim_dict
 from action_adapters.resource_usage_monitor_adapter import ResourceMonitorAdapter   
-from common.utils.security_utils import check_integrity
 
+from EBRAINS_Launcher.common.utils.security_utils import check_integrity
 from EBRAINS_RichEndpoint.application_companion.common_enums import SteeringCommands, COMMANDS, INTERCOMM_TYPE
 from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_SIMULATOR_APPLICATION as SIMULATOR
 from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_INTERSCALEHUB_APPLICATION as INTERSCALE_HUB

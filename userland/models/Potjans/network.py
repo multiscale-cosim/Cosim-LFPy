@@ -30,7 +30,7 @@ build and simulate the network.
 import os
 import numpy as np
 import nest
-import science.models.Potjans.helpers as helpers
+import userland.models.Potjans.helpers as helpers
 import warnings
 
 
@@ -55,13 +55,25 @@ class Network:
 
     """
 
-    def __init__(self, sim_dict, net_dict, stim_dict=None):
+    def __init__(self, sim_dict, net_dict, stim_dict=None, data_path=None):
         self.sim_dict = sim_dict
         self.net_dict = net_dict
         self.stim_dict = stim_dict
 
         # data directory
-        self.data_path = sim_dict['data_path']
+        if data_path is None:
+            self.data_path = sim_dict['data_path']
+            self.__setup_result_data_directory()
+        else:
+            self.data_path = data_path
+
+        # derive parameters based on input dictionaries
+        self.__derive_parameters()
+        # initialize the NEST kernel
+        self.__setup_nest()
+
+    def __setup_result_data_directory(self):
+        """sets up the directory for dumping the result data"""
         if nest.Rank() == 0:
             if os.path.isdir(self.data_path):
                 message = '  Directory already existed.'
@@ -71,12 +83,8 @@ class Network:
                 os.mkdir(self.data_path)
                 message = '  Directory has been created.'
             print('Data will be written to: {}\n{}\n'.format(self.data_path,
-                                                             message))
+                                                            message))
 
-        # derive parameters based on input dictionaries
-        self.__derive_parameters()
-        # initialize the NEST kernel
-        self.__setup_nest()
 
     def create(self, interscalehub_NEST_TO_LFPy_address):
         """ Creates all network nodes.

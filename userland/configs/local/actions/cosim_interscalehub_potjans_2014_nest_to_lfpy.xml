@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<settings>
+    <co_simulation_action>
+        <title>Nest to LFPy transformer data producer</title>
+        <description>Nest to LFPy transformer input data</description>
+        <variables>
+            <var_000>
+                <var_name>__no_variable_name__</var_name>
+                <var_value>__no_variable_value__</var_value>
+            </var_000>
+        </variables>
+        <parameters>
+            <par_000>
+                <par_name>CO_SIM_SCIENTIFIC_PARAMETERS</par_name>
+                <par_value>{CO_SIM_PARAMETERS_PATH}/ms_components/interscale_hub.xml</par_value>
+            </par_000>
+        </parameters>
+        <action>
+            <launcher>
+                <launcher_command>{CO_SIM_LAUNCHER}</launcher_command>
+                <launcher_arguments>
+                    <argv_1_option>-n</argv_1_option>
+                    <argv_1_value>1</argv_1_value>
+                </launcher_arguments>
+            </launcher>
+            <performer>
+                <performer_binary>python3</performer_binary>
+                <performer_arguments>
+                    <argv_01_empty>{CO_SIM_EMPTY}</argv_01_empty>
+                </performer_arguments>
+            </performer>
+            <routine>
+                <routine_code>{CO_SIM_ROUTINES_PATH}/interscalehub/interscalehub_adapter.py</routine_code>
+                <routine_arguments>
+                    <!-- data exchange direction corresponds to EBRAINS_InterscaleHUB/Interscale_hub/interscalehub_enums.py -->
+                    <argv_1_value>3</argv_1_value>
+                </routine_arguments>
+            </routine>
+        </action>
+    </co_simulation_action>
+</settings>

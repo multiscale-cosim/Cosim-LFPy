@@ -19,11 +19,9 @@ import ast
 
 from mpi4py import MPI
 
-from common.utils.security_utils import check_integrity
 from action_adapters.resource_usage_monitor_adapter import ResourceMonitorAdapter
 
-# from EBRAINS_InterscaleHUB.Interscale_hub.manager_nest_to_tvb import NestToTvbManager
-# from EBRAINS_InterscaleHUB.Interscale_hub.manager_tvb_to_nest import TvbToNestManager
+from EBRAINS_Launcher.common.utils.security_utils import check_integrity
 from EBRAINS_InterscaleHUB.Interscale_hub.manager_nest_to_lfpy import NestToLFPyManager
 from EBRAINS_InterscaleHUB.Interscale_hub.interscalehub_enums import DATA_EXCHANGE_DIRECTION
 from EBRAINS_RichEndpoint.application_companion.common_enums import SteeringCommands, COMMANDS, Response 
