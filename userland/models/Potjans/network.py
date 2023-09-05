@@ -67,6 +67,8 @@ class Network:
         else:
             self.data_path = data_path
 
+        self.__min_delay = None
+
         # derive parameters based on input dictionaries
         self.__derive_parameters()
         # initialize the NEST kernel
@@ -102,8 +104,10 @@ class Network:
         if self.stim_dict['dc_input']:
             self.__create_dc_stim_input()
         
+        # get NEST min delay
+        self.__min_delay = nest.GetKernelStatus("min_delay")
         # return spike recorders
-        return self.spike_recorders
+        return self.__min_delay, self.spike_recorders
 
     def connect(self):
         """ Connects the network.
@@ -371,7 +375,7 @@ class Network:
             #            'label': os.path.join(self.data_path, 'spike_recorder')}
             # Changed to make MPI connection with Cosim InterscaleHub
             sd_dict = {"record_to": "mpi",
-                       'label': interscalehub_NEST_TO_LFPy_address}
+                       'mpi_address': interscalehub_NEST_TO_LFPy_address}
             if self.stim_dict['thalamic_input']:
                 num_recorders = self.num_pops + 1
             else:
