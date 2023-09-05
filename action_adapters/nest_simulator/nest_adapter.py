@@ -76,7 +76,8 @@ class NestAdapter:
         self.__interscalehub_NEST_TO_LFPy_address = None
         self.__init_port_names(p_interscalehub_addresses)
         self.__simulator = None
-        self.__spike_detectors = None
+        self.__spike_recorders = None
+        self.__local_minimum_step_size = None
         self.__is_monitoring_enabled = is_monitoring_enabled
         if self.__is_monitoring_enabled:
             self.__resource_usage_monitor = ResourceMonitorAdapter(self._configurations_manager,
@@ -116,10 +117,10 @@ class NestAdapter:
                     INTERSCALE_HUB.INTERCOMM_TYPE.name) == INTERCOMM_TYPE.RECEIVER.name:
                 # get mpi port name
                 self.__interscalehub_NEST_TO_LFPy_address =\
-                    "endpoint_address:"+interscalehub.get(
+                    interscalehub.get(
                         INTERSCALE_HUB.MPI_CONNECTION_INFO.name)
                 self.__logger.debug("Interscalehub_receive_from_simulator_address: "
-                                f"{self.__interscalehub_NEST_TO_LFPy_address}")
+                                    f"{self.__interscalehub_NEST_TO_LFPy_address}")
 
     def execute_init_command(self):
         self.__logger.debug("executing INIT command")
@@ -129,18 +130,16 @@ class NestAdapter:
         # setup connections with InterscaleHub
         self.__log_message("preparing the simulator, and "
                            "establishing the connections")
-        self.__spike_detectors = self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
-        self.__logger.debug(f"spike_detectors: {self.__spike_detectors}")
+        self.__local_minimum_step_size, self.__spike_recorders = self.__simulator.create(self.__interscalehub_NEST_TO_LFPy_address)
+        self.__logger.debug(f"spike_detectors: {self.__spike_recorders}")
 
         self.__logger.debug(f"connecting simulator")
         self.__simulator.connect()
         self.__log_message("connections are made")
         self.__logger.debug("INIT command is executed")
         
-        # 2. return local minimum step size
-        # TODO determine the local minimum step size
-        local_minimum_step_size = 1.5  # NOTE hardcoded, will change later
-        return local_minimum_step_size, self.__spike_detectors.tolist()
+        # 2. return local minimum step size and spike recorder ids
+        return self.__local_minimum_step_size, self.__spike_recorders.tolist()
 
     def execute_start_command(self, global_minimum_step_size):
         self.__logger.debug("executing START command")
