@@ -47,7 +47,11 @@ CO_SIM_NEST=${CO_SIM_ROOT_PATH}/nest
 #
 # STEP 2.1 - base packages
 sudo apt update
-sudo apt install -y build-essential cmake git python3 python3-pip
+sudo apt install -y build-essential git python3 python3-pip
+
+# install the latest version of cmake
+sudo snap install cmake --classic
+
 #
 # STEP 2.2 - packages used by NEST, TVB and the use-case per se
 sudo apt install -y doxygen
