@@ -48,10 +48,10 @@ CO_SIM_NEST=${CO_SIM_ROOT_PATH}/nest
 # STEP 2.1 - base packages
 sudo apt update
 sudo apt install -y build-essential git python3 python3-pip
+sudo apt upgrade -y
 
 # install the latest version of cmake
 sudo snap install cmake --classic
-
 #
 # STEP 2.2 - packages used by NEST, TVB and the use-case per se
 sudo apt install -y doxygen
@@ -99,6 +99,13 @@ git clone --recurse-submodules --depth 1 --jobs 4 https://github.com/${GIT_DEFAU
 # International Neuroinformatics Coordinating Facility (INCF) 
 # https://github.com/INCF/MUSIC
 # https://github.com/INCF/libneurosim
+git clone https://github.com/nest/nest-simulator.git
+cd nest-simulator
+# 9cb3cb: Merge pull request from VRGroupRWTH/feature/device_label (https://github.com/nest/nest-simulator/commit/9cb3cb2ec1cc76e278ed7e9a8850609fdb443cae) 
+# TODO: Needed until NEST v3.6 release to incorporate the aforementioned pull request.
+git checkout 9cb3cb
+cd ..
+
 
 # Cython
 export PATH=${CO_SIM_SITE_PACKAGES}/bin:${PATH}
@@ -110,7 +117,7 @@ mkdir -p ${CO_SIM_NEST}
 cd ${CO_SIM_NEST_BUILD}
 cmake \
     -DCMAKE_INSTALL_PREFIX:PATH=${CO_SIM_NEST} \
-    ${CO_SIM_ROOT_PATH}/Cosim-LFPy/nest-simulator/ \
+    ${CO_SIM_ROOT_PATH}/nest-simulator/ \
     -Dwith-mpi=ON \
     -Dwith-openmp=ON \
     -Dwith-readline=ON \
@@ -120,8 +127,8 @@ cmake \
     -DPYTHON_INCLUDE_DIR=/usr/include/python3.10 \
     -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.10.so
 
-make -j 3
-make install
+make -j 4
+make -j 4 install
 cd ${CO_SIM_ROOT_PATH}
 
 #
