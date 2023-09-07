@@ -41,7 +41,15 @@
 
 ## About ##
 
-TODO: add usecase description here...
+This usecase demonstrates how to use the Co-simulation framework to calculate Local Field Potentials (LFPs) in real time, based on spike events streamed from the NEST simulator. 
+
+We used the cortical microcircuit model by Potjans and Diesmann, available from
+https://nest-simulator.readthedocs.io/en/stable/auto_examples/Potjans_2014/
+
+The LFP signals are calculated from the spike events by applying the so-called kernel approach, as outlined in Hagen et al. (2022):
+https://doi.org/10.1371/journal.pcbi.1010353
+
+This usecase can be used as a starting point for applying the Co-simulation framework to other network models in NEST or TVB, and also for simulating other brain signals like EEG, MEG, or ECoG signals.   
 
 ## Technologies ##
 
