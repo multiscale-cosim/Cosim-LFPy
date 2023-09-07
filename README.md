@@ -43,8 +43,8 @@
 Neural activity is simulated at different levels of biological detail, 
 and to make experimentally testable predictions
 it should be possible to calculate measurable brain signals from these simulations. 
-However, simulation using simplified representations 
-of neurons (level II and III in the figure below) are often
+However, simulations using simplified representations 
+of neurons (levels II and III in the figure below) are often
 not in a principled way able to predict brain signals like LFP, EEG, or MEG signals. 
 The motivation for this usecase is to enable calculation
 of LFP, EEG, and MEG signals directly from neural simulations with point neurons (like in NEST), 
