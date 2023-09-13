@@ -40,8 +40,27 @@
 <br>
 
 ## About ##
+Neural activity is simulated at different levels of biological detail, 
+and to make experimentally testable predictions
+it should be possible to calculate measurable brain signals from these simulations. 
+However, simulations using simplified representations 
+of neurons (levels II and III in the figure below) are often
+not in a principled way able to predict brain signals like LFP, EEG, or MEG signals. 
+The motivation for this usecase is to enable calculation
+of LFP, EEG, and MEG signals directly from neural simulations with point neurons (like in NEST), 
+or firing rate models (like in TVB).
+<p align="center">
+<img src="cosim-lfpy-motivation.png" alt="Motivation for Co-simulation with brain signal prediction" />
+</p>
+This usecase demonstrates how to use the Co-simulation framework to calculate Local Field Potentials (LFPs) in real time, based on spike events streamed from the NEST simulator. 
 
-TODO: add usecase description here...
+We used the cortical microcircuit model by Potjans and Diesmann, available from
+https://nest-simulator.readthedocs.io/en/stable/auto_examples/Potjans_2014/
+
+The LFP signals are calculated from the spike events by applying the so-called kernel approach, as outlined in Hagen et al. (2022):
+https://doi.org/10.1371/journal.pcbi.1010353
+
+This usecase can be used as a starting point for applying the Co-simulation framework to other network models in NEST or TVB, and also for simulating other brain signals like EEG, MEG, or ECoG signals.   
 
 ## Technologies ##
 

@@ -80,7 +80,8 @@ class PotjansDiesmannKernels:
         y: Postsynaptic subpopulation
     """
 
-    def __init__(self, spike_recorder_ids, overwrite_kernels=False):
+    def __init__(self, spike_recorder_ids, sim_savefolder=None, fig_folder=None,
+                 overwrite_kernels=False):
 
         # The parameters of the model and simulation are given by these
         # dictionaries:
@@ -92,14 +93,17 @@ class PotjansDiesmannKernels:
         self.dt = sim_dict['sim_resolution']
         self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
 
-        self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
-        os.makedirs(self.sim_saveforlder, exist_ok=True)
+        if sim_savefolder is None:
+            self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
+            os.makedirs(self.sim_saveforlder, exist_ok=True)
+        else:
+            self.sim_saveforlder = sim_savefolder
 
-        self.fig_folder = os.path.join(use_case_folder, 'models', 'figures')
-        if stim_dict['thalamic_input']:
-            self.fig_folder += '_with_thalamic'
-        os.makedirs(self.fig_folder, exist_ok=True)
-
+        if fig_folder is None:
+            self.fig_folder = os.path.join(use_case_folder, 'models', 'figures')
+            os.makedirs(self.fig_folder, exist_ok=True)
+        else:
+            self.fig_folder = fig_folder
         self.overwrite_kernels = overwrite_kernels
         self.plot_conn_data = True
         self.plot_kernels = True
