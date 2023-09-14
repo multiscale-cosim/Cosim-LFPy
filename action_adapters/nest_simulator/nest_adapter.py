@@ -33,8 +33,7 @@ from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_S
 from EBRAINS_RichEndpoint.application_companion.common_enums import INTEGRATED_INTERSCALEHUB_APPLICATION as INTERSCALE_HUB
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.default_directories_enum import DefaultDirectories
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.configurations_manager import ConfigurationsManager
-from EBRAINS_ConfigManager.workflow_configurations_manager.xml_parsers.xml2class_parser import Xml2ClassParser
-from EBRAINS_InterscaleHUB.Interscale_hub.interscalehub_enums import DATA_EXCHANGE_DIRECTION 
+from EBRAINS_InterscaleHUB.common.interscalehub_enums import DATA_EXCHANGE_DIRECTION 
 
 '''
 Potjans 2014 simulaiton model with NEST
@@ -46,33 +45,20 @@ class NestAdapter:
                  p_interscalehub_addresses,
                  is_monitoring_enabled,
                  sci_params_xml_path_filename=None):
-        # 1. set up logger
+        # set up logger
         self._log_settings = p_log_settings
         self._configurations_manager = p_configurations_manager
         self.__logger = self._configurations_manager.load_log_configurations(
         name="nest_adapter",
         log_configurations=self._log_settings,
         target_directory=DefaultDirectories.SIMULATION_RESULTS)
-        
-
         # MPI rank
         self.__comm = MPI.COMM_WORLD
         self.__rank = self.__comm.Get_rank()
         self.__my_pid = os.getpid()
         self.__logger.info(f"size: {self.__comm.Get_size()}, my rank: {self.__rank}, "
                            f"host_name:{os.uname()}")
-
-        # 2. Load parameters for the model
-        # TODO load parameters from a single source
-        self.__path_to_parameters_file = self._configurations_manager.get_directory(
-        directory=DefaultDirectories.SIMULATION_RESULTS)
-        # self.__sci_params = Xml2ClassParser(sci_params_xml_path_filename, self.__logger)
-        # self.__parameters = Parameters(self.__path_to_parameters_file)
-
-        # 4. Initialize port_names in the format as per nest-simulator
-        # NOTE The MPI port_name needs to be in string format and must be sent to
-        # nest-simulator in the following pattern:
-        # "endpoint_address":<port name>
+        # Initialize MPI port name
         self.__interscalehub_NEST_TO_LFPy_address = None
         self.__init_port_names(p_interscalehub_addresses)
         self.__simulator = None
@@ -84,8 +70,7 @@ class NestAdapter:
                                                                self._log_settings,
                                                                self.pid,
                                                                "NEST")
-        self.__logger.debug(f"running on host_name:{os.uname()}")
-        self.__logger.info("initialized")
+        self.__log_message("initialized")
 
 
     @property
@@ -108,7 +93,6 @@ class NestAdapter:
         helper function to prepare the port_names in the following format:
         "endpoint_address":<port name>
         '''
-        # TODO refactor to match the (bi-directional) interscaleHub
         for interscalehub in interscalehub_addresses:
             # endpoint to receive data from simulator
             if interscalehub.get(
@@ -149,22 +133,18 @@ class NestAdapter:
         self.__logger.debug('starting simulation')
         # NOTE following is relavent if it is a cosimulation
         count = 0.0
-        min_step_size = 1.2
-        while count * min_step_size < sim_dict['t_sim']:
+        # TODO consider setting it from sim_dict param file
+        simulation_step_size = 1.2  # NOTE hard-coded
+        self.__log_message(f"total simulation time: {sim_dict['t_sim']}")
+        while count * simulation_step_size < sim_dict['t_sim']:
             self.__log_message(f"simulation run counter: {count+1}")
-            self.__log_message(f"total simulation time: {sim_dict['t_sim']}")
             # TODO run simulation
-            self.__simulator.simulate(min_step_size)
+            self.__simulator.simulate(simulation_step_size)
             count += 1
-        # NOTE two subsequent calls to simulate ?
-        # self.__simulator.simulate(sim_dict['t_presim'])
-        # self.__simulator.simulate(sim_dict['t_sim'])
 
         self.__logger.info('NEST simulation is finished')
         self.__logger.info("cleaning up NEST")
         self.__simulator.cleanup()
-        # nest.Cleanup()
-        # self.execute_end_command()
 
     def execute_end_command(self):
         self.__logger.debug("executing END command")

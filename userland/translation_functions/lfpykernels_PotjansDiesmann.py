@@ -94,7 +94,9 @@ class PotjansDiesmannKernels:
         self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
 
         if sim_savefolder is None:
-            self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
+            self.sim_saveforlder = os.path.join(use_case_folder,
+                                                'models',
+                                                'pathway_kernels_dir')
             os.makedirs(self.sim_saveforlder, exist_ok=True)
         else:
             self.sim_saveforlder = sim_savefolder
@@ -841,31 +843,43 @@ class PotjansDiesmannKernels:
         np.save(os.path.join(self.sim_saveforlder, 'lfp.npy'),
                              self.lfp)
 
-    def update(self, buffer):
+    def update(self, raw_data, transformer_intra_comm, transformers_root_rank):
         """
         Gets buffer spike data from the co-simulation framework,
         and calculates the resulting firing rate and LFP.
 
         Parameters
         ---------
-        buffer: ndarray of
-            buffer with spike data, with shape (num_spike_events, 3),
-            where the first column is the ID of spike recorder (used to
-            identify population name), the second column is the
-            neuron_ID (not used), and the third column is the spike time.
+        buffer: ndarray 
+            of buffer with spike data
+
+        transformer_intra_comm: MPI Intracomm
+            intra communicator of the MPI group of transformers
+
+        transformers_root_rank: int
+            root rank in MPI group of transformers
         """
-        if len(buffer) == 0:
+        # TODO consider splitting the computation among group of transformers
+
+        if len(raw_data) == 0:
+            # TODO should rather raise an exception here ?
             return
+
+        # reshape data with shape (num_spike_events, 3)
+        # NOTE reshaped buffer is where the first column is the ID of spike
+        # recorder (used to identify population name), the second column is the
+        # neuron_ID (not used), and the third column is the spike time.
+        data_buffer = raw_data.reshape(int(len(raw_data)/3), 3)
 
         # Find smallest and largest time in buffer, so we can
         # update the corresponding part of the LFP signal
-        t0, t1 = np.min(buffer[:, 2]), np.max(buffer[:, 2])
+        t0, t1 = np.min(data_buffer[:, 2]), np.max(data_buffer[:, 2])
         t0_idx = np.argmin(np.abs(t0 - self.tvec))
         t1_idx = np.argmin(np.abs(t1 - self.tvec)) + 1
 
-        for pop_ID in set(buffer[:, 0]):
+        for pop_ID in set(data_buffer[:, 0]):
             pop_name = self.pop_IDs[pop_ID]
-            spiketimes = buffer[buffer[:, 0] == pop_ID][:, 2]
+            spiketimes = data_buffer[data_buffer[:, 0] == pop_ID][:, 2]
 
             for t_ in spiketimes:
                 if t_ > self.tvec[-1]:
