@@ -94,7 +94,9 @@ class PotjansDiesmannKernels:
         self.tvec = np.arange(int(sim_dict['t_sim'] / self.dt + 1)) * self.dt
 
         if sim_savefolder is None:
-            self.sim_saveforlder = os.path.join(use_case_folder, 'models', 'sim_results')
+            self.sim_saveforlder = os.path.join(use_case_folder,
+                                                'models',
+                                                'pathway_kernels_dir')
             os.makedirs(self.sim_saveforlder, exist_ok=True)
         else:
             self.sim_saveforlder = sim_savefolder
@@ -841,7 +843,7 @@ class PotjansDiesmannKernels:
         np.save(os.path.join(self.sim_saveforlder, 'lfp.npy'),
                              self.lfp)
 
-    def update(self, buffer, transformer_intra_comm, transformers_root_rank):
+    def update(self, raw_data, transformer_intra_comm, transformers_root_rank):
         """
         Gets buffer spike data from the co-simulation framework,
         and calculates the resulting firing rate and LFP.
@@ -857,15 +859,17 @@ class PotjansDiesmannKernels:
         transformers_root_rank: int
             root rank in MPI group of transformers
         """
-        # reshape buffer with shape (num_spike_events, 3)
+        # TODO consider splitting the computation among group of transformers
+
+        if len(raw_data) == 0:
+            # TODO should rather raise an exception here ?
+            return
+
+        # reshape data with shape (num_spike_events, 3)
         # NOTE reshaped buffer is where the first column is the ID of spike
         # recorder (used to identify population name), the second column is the
         # neuron_ID (not used), and the third column is the spike time.
-
-        data_buffer = buffer.reshape(int(len(buffer)/3), 3)
-
-        if len(data_buffer) == 0:
-            return
+        data_buffer = raw_data.reshape(int(len(raw_data)/3), 3)
 
         # Find smallest and largest time in buffer, so we can
         # update the corresponding part of the LFP signal

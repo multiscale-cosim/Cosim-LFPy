@@ -22,8 +22,8 @@ from mpi4py import MPI
 from action_adapters.resource_usage_monitor_adapter import ResourceMonitorAdapter
 
 from EBRAINS_Launcher.common.utils.security_utils import check_integrity
-from EBRAINS_InterscaleHUB.Interscale_hub.manager_nest_to_lfpy import NestToLFPyManager
-from EBRAINS_InterscaleHUB.Interscale_hub.interscalehub_enums import DATA_EXCHANGE_DIRECTION
+from EBRAINS_InterscaleHUB.managers.usecase_specific.nest_lfpy_manager import NestToLFPyManager
+from EBRAINS_InterscaleHUB.common.interscalehub_enums import DATA_EXCHANGE_DIRECTION
 from EBRAINS_RichEndpoint.application_companion.common_enums import SteeringCommands, COMMANDS, Response 
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.default_directories_enum import DefaultDirectories
 from EBRAINS_ConfigManager.global_configurations_manager.xml_parsers.configurations_manager import ConfigurationsManager
@@ -115,7 +115,6 @@ class InterscaleHubAdapter:
                                         f'{self.__direction}')
             # return with with error
             return Response.ERROR
-            
 
         self.__logger.debug(f"initialized {self.__hub}")
 

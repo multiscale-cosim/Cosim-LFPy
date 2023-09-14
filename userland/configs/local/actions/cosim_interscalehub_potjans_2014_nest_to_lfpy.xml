@@ -20,7 +20,10 @@
                 <launcher_command>{CO_SIM_LAUNCHER}</launcher_command>
                 <launcher_arguments>
                     <argv_1_option>-n</argv_1_option>
-                    <argv_1_value>1</argv_1_value>
+                    <!-- NOTE at least 2 ranks are needed for this usecase,
+                    one rank makes the MPI group to receive from NEST and rest
+                    of the ranks formulate the MPI group of transformer -->
+                    <argv_1_value>3</argv_1_value>
                 </launcher_arguments>
             </launcher>
             <performer>
