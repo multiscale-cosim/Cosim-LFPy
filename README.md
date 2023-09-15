@@ -94,7 +94,12 @@ Please check [HERE](https://github.com/multiscale-cosim/Cosim-LFPy/tree/main/INS
     ```
     vagrant@ubuntu-focal:~multiscale-cosim/Cosim-LFPy/run_usecase/local$ sh ./run_on_local.sh
     ```
-- **From outside of the cloned repo:** On the VM (see Installation guide above) you will find two scripts in `/home/vagrant/multiscale-cosim`:
+- **From outside of the cloned repo:**
+  - On the VM (see Installation guide above) you will find two following scripts in `/home/vagrant/multiscale-cosim`:
+    1. `Cosim-LFPy.source` and
+    2. `run_on_loacl.sh`
+    
+    run them as following:
     ```
     vagrant@ubuntu-focal:~multiscale-cosim$ source Cosim-LFPy.source
     vagrant@ubuntu-focal:~multiscale-cosim$ ./run_on_loacl.sh
