@@ -87,14 +87,14 @@ Please check [HERE](https://github.com/multiscale-cosim/Cosim-LFPy/tree/main/INS
 
 ### How to run ###
  
- The framework and usecase can be installed and launched on:
-- **Local systems:**
+ The framework and usecase can be launched in two different following ways:
+- **From within the cloned repo:**
   - go to [run_usecase/local](https://github.com/multiscale-cosim/Cosim-LFPy/tree/main/run_usecase/local) directory and run [this](https://github.com/multiscale-cosim/Cosim-LFPy/blob/main/run_usecase/local/run_on_local.sh) script from there e.g.
 
-  ```
-  $ sh ./run_on_local.sh
-  ```
-  - On the VM (see Installation guide above) you will find two scripts in `/home/vagrant/multiscale-cosim`:
+    ```
+    vagrant@ubuntu-focal:~multiscale-cosim/Cosim-LFPy/run_usecase/local$ sh ./run_on_local.sh
+    ```
+- **From outside of the cloned repo:** On the VM (see Installation guide above) you will find two scripts in `/home/vagrant/multiscale-cosim`:
     ```
     vagrant@ubuntu-focal:~multiscale-cosim$ source Cosim-LFPy.source
     vagrant@ubuntu-focal:~multiscale-cosim$ ./run_on_loacl.sh
