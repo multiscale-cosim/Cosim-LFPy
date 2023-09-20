@@ -7,19 +7,19 @@
 <h1 align="center">Modular Science: Multi-scale Co-simulation</h1>
 
 <p align="center">
-  <img alt="Github top language" src="https://img.shields.io/github/languages/top/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Github top language" src="https://img.shields.io/github/languages/top/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="Github language count" src="https://img.shields.io/github/languages/count/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Github language count" src="https://img.shields.io/github/languages/count/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="Repository size" src="https://img.shields.io/github/repo-size/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Repository size" src="https://img.shields.io/github/repo-size/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="License" src="https://img.shields.io/github/license/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="License" src="https://img.shields.io/github/license/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="Github issues" src="https://img.shields.io/github/issues/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Github issues" src="https://img.shields.io/github/issues/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="Github forks" src="https://img.shields.io/github/forks/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Github forks" src="https://img.shields.io/github/forks/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 
-  <img alt="Github stars" src="https://img.shields.io/github/stars/multiscale-cosim/TVB-NEST-usecase1?color=56BEB8" />
+  <img alt="Github stars" src="https://img.shields.io/github/stars/multiscale-cosim/Cosim-LFPy?color=56BEB8" />
 </p>
 
 <h4 align="center"> 
@@ -105,25 +105,25 @@ Please check [HERE](https://github.com/multiscale-cosim/Cosim-LFPy/tree/main/INS
     vagrant@ubuntu-focal:~multiscale-cosim$ ./run_on_loacl.sh
     ```
 
-<!-- - **HPC systems:** To execute the usecase on HPC systems, go to [run_usecase/hpc](https://github.com/multiscale-cosim/TVB-NEST-usecase1/tree/hpc/run_usecase/hpc) directory. The usecase can be deployed and executed within an interactive session or could also be submitted as a SLURM job. 
+<!-- - **HPC systems:** To execute the usecase on HPC systems, go to [run_usecase/hpc](https://github.com/multiscale-cosim/Cosim-LFPy/tree/hpc/run_usecase/hpc) directory. The usecase can be deployed and executed within an interactive session or could also be submitted as a SLURM job. 
 
   - Interactive session: first allocate the required resources by specifying the cluster partition and account e.g:
     ```
     $ salloc --partition=<partition> --nodes=2 --account=<account>
     ```
-    Then, run [this](https://github.com/multiscale-cosim/TVB-NEST-usecase1/blob/hpc/run_usecase/hpc/cosim_launch_hpc_sbatch.sh) script from there e.g.:
+    Then, run [this](https://github.com/multiscale-cosim/Cosim-LFPy/blob/hpc/run_usecase/hpc/cosim_launch_hpc_sbatch.sh) script from there e.g.:
 
     ```
     $ sh ./cosim_launch_hpc_sbatch.sh
     ```
 
-  - SLURM job: To submit the usecase as a slurm job, run [this](https://github.com/multiscale-cosim/TVB-NEST-usecase1/blob/hpc/run_usecase/hpc/run_usecase_sbatch.sh) script e.g.:
+  - SLURM job: To submit the usecase as a slurm job, run [this](https://github.com/multiscale-cosim/Cosim-LFPy/blob/hpc/run_usecase/hpc/run_usecase_sbatch.sh) script e.g.:
 
     ```
     $ sh ./run_usecase_sbatch.sh
     ```
 
-    **NOTE** It will create a directory named as _slurm_logs_ at the [same location](https://github.com/multiscale-cosim/TVB-NEST-usecase1/tree/hpc/run_usecase/hpc) where the execution script is run, to capture the outputs and errors from the SLURM. -->
+    **NOTE** It will create a directory named as _slurm_logs_ at the [same location](https://github.com/multiscale-cosim/Cosim-LFPy/tree/hpc/run_usecase/hpc) where the execution script is run, to capture the outputs and errors from the SLURM. -->
 
   **Simulation Results:** The simulation results, logs, and the resource usage stats can be found in directory ***Cosimulation_outputs*** created by Modular Science during the execution at the [same location](https://github.com/multiscale-cosim/Cosim-LFPy/tree/main/run_usecase/local) where the execution script is run.
 -- --
